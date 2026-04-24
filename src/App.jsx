@@ -9,12 +9,14 @@ import ScoringScreen from "./components/ScoringScreen";
 import ScattsScreen from "./components/ScattsScreen";
 import LeaderboardScreen from "./components/LeaderboardScreen";
 import WinningsScreen from "./components/WinningsScreen";
+import GamesScreen from "./components/GamesScreen";
 
 const TABS = [
   { id: "leaderboard", label: "Leaderboard" },
   { id: "scoring",     label: "Scoring" },
   { id: "scatts",      label: "Scatts" },
   { id: "winnings",    label: "Winnings" },
+  { id: "games",       label: "Games" },
   { id: "pairings",    label: "Pairings" },
   { id: "courses",     label: "Courses" },
   { id: "setup",       label: "Players" },
@@ -113,7 +115,7 @@ export default function App() {
     : ["leaderboard", "scoring", "scatts", "winnings"];
   const MORE = isSetupPhase
     ? ["leaderboard", "scoring", "scatts", "winnings"]
-    : ["pairings", "courses", "setup"];
+    : ["games", "pairings", "courses", "setup"];
 
   function syncAgo() {
     if (!lastSynced) return null;
@@ -214,6 +216,7 @@ export default function App() {
           {screen === "scatts"      && <ScattsScreen      event={event} />}
           {screen === "leaderboard" && <LeaderboardScreen event={event} />}
           {screen === "winnings"    && <WinningsScreen    event={event} />}
+          {screen === "games"       && <GamesScreen       event={event} saveEvent={saveEvent} />}
         </div>
       )}
     </div>

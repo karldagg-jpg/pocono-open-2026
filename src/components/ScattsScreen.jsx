@@ -3,15 +3,19 @@ import { CARD, CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/them
 import { calcScatts, playerCourseHcp } from "../lib/golfLogic";
 
 export default function ScattsScreen({ event }) {
-  const { players = [], courses = {}, rounds = {}, buyIn = 100 } = event;
+  const { players = [], courses = {}, rounds = {}, buyIn = 100, games = {} } = event;
   const [activeRound, setActiveRound] = useState(1);
 
   const round = rounds[activeRound] || {};
   const course = courses[round.courseId || activeRound];
-  const totalPot = players.length * buyIn;
+  // Use allocated scatts pot if configured, otherwise fall back to full buy-in
+  const scattsBuyIn = games.scatts?.enabled && games.scatts?.pot != null
+    ? games.scatts.pot / Math.max(players.length, 1)
+    : buyIn;
+  const totalPot = players.length * scattsBuyIn;
 
   const result = course && Object.keys(round.scores || {}).length
-    ? calcScatts(round.scores || {}, course, players, buyIn)
+    ? calcScatts(round.scores || {}, course, players, scattsBuyIn)
     : null;
 
   return (

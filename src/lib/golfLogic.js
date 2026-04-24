@@ -113,13 +113,98 @@ export function calcLeaderboard(event) {
     });
 }
 
+// ── Low Net payout ───────────────────────────────────────────────────────────
+// payoutPcts: e.g. [50, 30, 20] — must sum to 100
+// Ties: tied players split the combined prize money for the positions they occupy
+export function calcLowNet(event) {
+  const { players = [], games = {} } = event;
+  const cfg = games.lowNet || {};
+  const pot = cfg.pot || 0;
+  const pcts = cfg.payoutPcts || [50, 30, 20];
+  if (!pot || !players.length) return { payouts: {}, positions: [], pot };
+
+  const board = calcLeaderboard(event);
+  // Only players who completed all rounds
+  const finished = board.filter((r) => r.roundsPlayed >= (cfg.minRounds || 3));
+  if (!finished.length) return { payouts: {}, positions: [], pot };
+
+  // Group into tied positions
+  const positions = [];
+  let i = 0;
+  while (i < finished.length) {
+    const total = finished[i].total;
+    const group = [];
+    while (i < finished.length && finished[i].total === total) {
+      group.push(finished[i]);
+      i++;
+    }
+    positions.push(group);
+  }
+
+  // Calculate prize for each position slot
+  const prizes = pcts.map((pct) => Math.round((pot * pct) / 100));
+
+  const payouts = {};
+  players.forEach((p) => { payouts[p.id] = 0; });
+
+  let slotIdx = 0;
+  positions.forEach((group) => {
+    const slots = group.length;
+    // Sum up prizes for the slots this group occupies
+    const combined = prizes.slice(slotIdx, slotIdx + slots).reduce((a, b) => a + b, 0);
+    const share = Math.round(combined / slots);
+    group.forEach((r) => { payouts[r.player.id] = share; });
+    slotIdx += slots;
+    if (slotIdx >= pcts.length) return; // no more prize positions
+  });
+
+  return { payouts, positions, pot, pcts, prizes };
+}
+
+// ── CTP (Closest to Pin) ─────────────────────────────────────────────────────
+// ctpResults: { [roundNum]: { [holeIdx]: playerId } }
+// Returns per-player payout
+export function calcCTP(event) {
+  const { players = [], games = {} } = event;
+  const cfg = games.ctp || {};
+  const pot = cfg.pot || 0;
+  const ctpResults = cfg.results || {}; // { roundNum: { holeIdx: playerId } }
+  if (!pot) return { payouts: {}, totalWins: {} };
+
+  const payouts = {};
+  const totalWins = {};
+  players.forEach((p) => { payouts[p.id] = 0; totalWins[p.id] = 0; });
+
+  // Count total wins across all rounds and holes
+  let totalHoles = 0;
+  Object.values(ctpResults).forEach((roundResult) => {
+    Object.values(roundResult).forEach((pid) => {
+      if (pid && payouts[pid] !== undefined) {
+        totalWins[pid]++;
+        totalHoles++;
+      }
+    });
+  });
+
+  const perWin = totalHoles > 0 ? Math.round(pot / totalHoles) : 0;
+  Object.entries(totalWins).forEach(([pid, wins]) => {
+    payouts[Number(pid)] = wins * perWin;
+  });
+
+  return { payouts, totalWins, pot, perWin, ctpResults };
+}
+
 // ── Winnings ─────────────────────────────────────────────────────────────────
 export function calcWinnings(event) {
-  const { players = [], courses = {}, rounds = {}, buyIn = 100 } = event;
+  const { players = [], courses = {}, rounds = {}, games = {}, buyIn = 100 } = event;
   const winnings = {};
-  players.forEach((p) => { winnings[p.id] = { scatts: 0, leaderboard: 0, total: 0 }; });
+  players.forEach((p) => { winnings[p.id] = { scatts: 0, lowNet: 0, ctp: 0, total: 0 }; });
 
-  // Scatts per round
+  // Scatts pot per round (use allocated amount or full buyIn as fallback)
+  const scattsBuyIn = games.scatts?.pot != null
+    ? games.scatts.pot / Math.max(players.length, 1)
+    : buyIn;
+
   [1, 2, 3].forEach((rNum) => {
     const round = rounds[rNum];
     if (!round) return;
@@ -127,23 +212,31 @@ export function calcWinnings(event) {
     if (!course) return;
     const hasScores = players.some((p) => (round.scores || {})[p.id]?.filter(Boolean).length > 0);
     if (!hasScores) return;
-    const { holeWinners, scattValue } = calcScatts(round.scores || {}, course, players, buyIn);
+    const { holeWinners, scattValue } = calcScatts(round.scores || {}, course, players, scattsBuyIn);
     Object.entries(holeWinners).forEach(([pid, scatts]) => {
       const id = Number(pid);
       if (winnings[id]) winnings[id].scatts += Math.round(scatts * scattValue);
     });
   });
 
-  // Leaderboard (low net over all rounds) — top 3 payout from separate pot if configured
-  // For now: flag the leader
-  const board = calcLeaderboard(event);
-  const completed = board.filter((r) => r.roundsPlayed === 3);
-  if (completed.length > 0) {
-    // Leaderboard payout handled separately — just track rank
-  }
+  // Low Net payout
+  const { payouts: lnPayouts } = calcLowNet(event);
+  Object.entries(lnPayouts).forEach(([pid, amt]) => {
+    const id = Number(pid);
+    if (winnings[id]) winnings[id].lowNet = amt;
+  });
+
+  // CTP payout
+  const { payouts: ctpPayouts } = calcCTP(event);
+  Object.entries(ctpPayouts).forEach(([pid, amt]) => {
+    const id = Number(pid);
+    if (winnings[id]) winnings[id].ctp = amt;
+  });
 
   players.forEach((p) => {
-    if (winnings[p.id]) winnings[p.id].total = winnings[p.id].scatts + winnings[p.id].leaderboard;
+    if (winnings[p.id]) {
+      winnings[p.id].total = winnings[p.id].scatts + winnings[p.id].lowNet + winnings[p.id].ctp;
+    }
   });
 
   return winnings;
