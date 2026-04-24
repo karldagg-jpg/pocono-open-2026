@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { onSnapshot, setDoc } from "firebase/firestore";
 import { EVENT_DOC } from "./firebase/client";
 import { BG, CREAM, G, GO, GOLD, M, FB, FD } from "./constants/theme";
@@ -35,6 +35,8 @@ export default function App() {
   const [online, setOnline] = useState(navigator.onLine);
   const [saving, setSaving] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [lastSynced, setLastSynced] = useState(null);
+  const syncTimer = useRef(null);
 
   useEffect(() => {
     const on = () => setOnline(true);
@@ -46,9 +48,19 @@ export default function App() {
 
   useEffect(() => {
     const unsub = onSnapshot(EVENT_DOC, (snap) => {
-      if (snap.exists()) setEvent(snap.data());
+      if (snap.exists()) {
+        setEvent(snap.data());
+        setLastSynced(new Date());
+      }
     }, (err) => console.warn("Firestore:", err));
     return unsub;
+  }, []);
+
+  // Update "ago" display every 30s
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 30000);
+    return () => clearInterval(id);
   }, []);
 
   const saveEvent = useCallback(async (updated) => {
@@ -56,6 +68,7 @@ export default function App() {
     setSaving(true);
     try {
       await setDoc(EVENT_DOC, updated, { merge: true });
+      setLastSynced(new Date());
     } catch (e) {
       console.warn("Queued offline:", e.message);
     } finally {
@@ -63,8 +76,31 @@ export default function App() {
     }
   }, []);
 
-  const PRIMARY = ["leaderboard", "scoring", "scatts", "winnings"];
-  const MORE    = ["pairings", "courses", "setup"];
+  // Determine if event has scores entered (to decide nav mode)
+  const hasScores = Object.values(event.rounds || {}).some(
+    (r) => r.scores && Object.values(r.scores).some((s) => s && s.some(Boolean))
+  );
+  const hasPlayers = (event.players || []).length > 0;
+  const hasCourses = Object.keys(event.courses || {}).length > 0;
+
+  // If no setup done yet, show setup tabs prominently
+  const isSetupPhase = !hasPlayers || !hasCourses;
+
+  const PRIMARY = isSetupPhase
+    ? ["setup", "courses", "pairings"]
+    : ["leaderboard", "scoring", "scatts", "winnings"];
+  const MORE = isSetupPhase
+    ? ["leaderboard", "scoring", "scatts", "winnings"]
+    : ["pairings", "courses", "setup"];
+
+  function syncAgo() {
+    if (!lastSynced) return null;
+    const secs = Math.floor((Date.now() - lastSynced.getTime()) / 1000);
+    if (secs < 10) return "just now";
+    if (secs < 60) return `${secs}s ago`;
+    const mins = Math.floor(secs / 60);
+    return `${mins}m ago`;
+  }
 
   return (
     <div style={{ minHeight: "100dvh", background: BG, color: CREAM, fontFamily: FB }}>
@@ -80,7 +116,10 @@ export default function App() {
               Pocono Open 2026
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              {saving && <span style={{ fontSize: "11px", color: M }}>saving…</span>}
+              {saving && <span style={{ fontSize: "11px", color: M }}>saving...</span>}
+              {lastSynced && !saving && (
+                <span className="synced">synced {syncAgo()}</span>
+              )}
               <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: online ? G : "#e6a817" }} title={online ? "Online" : "Offline"} />
             </div>
           </div>
@@ -91,7 +130,7 @@ export default function App() {
               return <NavBtn key={id} active={screen === id} onClick={() => { setScreen(id); setMoreOpen(false); }}>{t.label}</NavBtn>;
             })}
             <NavBtn active={MORE.includes(screen) || moreOpen} onClick={() => setMoreOpen((o) => !o)}>
-              Setup {moreOpen ? "▲" : "▼"}
+              {isSetupPhase ? "Play" : "Setup"} {moreOpen ? "▲" : "▼"}
             </NavBtn>
           </div>
 

@@ -138,7 +138,7 @@ export default function CourseScreen({ event, saveEvent }) {
 }
 
 function Label({ children }) {
-  return <div style={{ fontSize: "11px", color: "#8a9e8c", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600, marginBottom: "5px" }}>{children}</div>;
+  return <div style={{ fontSize: "11px", color: M, letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600, marginBottom: "5px" }}>{children}</div>;
 }
 
 const inputStyle = {
@@ -147,7 +147,7 @@ const inputStyle = {
   borderRadius: "8px",
   border: "1px solid rgba(201,168,76,0.2)",
   background: "rgba(26,61,36,0.15)",
-  color: "#f0ece0",
+  color: CREAM,
   fontSize: "14px",
   fontFamily: "'Inter','Helvetica Neue',sans-serif",
   outline: "none",
@@ -161,7 +161,7 @@ const holeInput = {
   borderRadius: "5px",
   border: "1px solid rgba(201,168,76,0.15)",
   background: "rgba(26,61,36,0.2)",
-  color: "#f0ece0",
+  color: CREAM,
   fontSize: "12px",
   fontFamily: "'Inter','Helvetica Neue',sans-serif",
   outline: "none",
@@ -170,7 +170,7 @@ const holeInput = {
 const thStyle = {
   padding: "5px 3px",
   fontSize: "10px",
-  color: "#8a9e8c",
+  color: M,
   textAlign: "center",
   fontWeight: 600,
   letterSpacing: "0.05em",
@@ -180,7 +180,7 @@ const tdLabel = {
   padding: "5px 8px",
   fontSize: "11px",
   fontWeight: 700,
-  color: "#c9a84c",
+  color: GOLD,
   whiteSpace: "nowrap",
 };
 
@@ -188,8 +188,8 @@ const btnStyle = {
   padding: "10px 22px",
   borderRadius: "8px",
   border: "none",
-  background: "#1a6b3a",
-  color: "#f0ece0",
+  background: G,
+  color: CREAM,
   fontFamily: "'Inter','Helvetica Neue',sans-serif",
   fontSize: "13px",
   fontWeight: 700,
