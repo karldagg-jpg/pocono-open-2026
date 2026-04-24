@@ -111,7 +111,7 @@ export default function App() {
   const isSetupPhase = !hasPlayers || !hasCourses;
 
   const PRIMARY = isSetupPhase
-    ? ["setup", "courses", "pairings"]
+    ? ["setup", "courses", "games", "pairings"]
     : ["leaderboard", "scoring", "scatts", "winnings"];
   const MORE = isSetupPhase
     ? ["leaderboard", "scoring", "scatts", "winnings"]
