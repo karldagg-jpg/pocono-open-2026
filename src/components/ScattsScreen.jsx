@@ -3,14 +3,16 @@ import { CARD, CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/them
 import { calcScatts, playerCourseHcp } from "../lib/golfLogic";
 
 export default function ScattsScreen({ event }) {
-  const { players = [], courses = {}, rounds = {}, buyIn = 100, games = {} } = event;
+  const { players = [], courses = {}, rounds = {}, buyIn = 100, weekendBuyIn, games = {} } = event;
   const [activeRound, setActiveRound] = useState(1);
 
   const round = rounds[activeRound] || {};
   const course = courses[round.courseId || activeRound];
-  // Use allocated scatts pot if configured, otherwise fall back to full buy-in
-  const scattsBuyIn = games.scatts?.enabled && games.scatts?.pot != null
-    ? games.scatts.pot / Math.max(players.length, 1)
+  // Per-round scatts pot: allocated ÷ 3 rounds ÷ players, else weekendBuyIn÷3, else legacy buyIn
+  const scattsBuyIn = games.scatts?.enabled && games.scatts?.pot
+    ? games.scatts.pot / 3 / Math.max(players.length, 1)
+    : weekendBuyIn
+    ? weekendBuyIn / 3
     : buyIn;
   const totalPot = players.length * scattsBuyIn;
 

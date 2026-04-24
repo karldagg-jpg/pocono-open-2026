@@ -196,13 +196,15 @@ export function calcCTP(event) {
 
 // ── Winnings ─────────────────────────────────────────────────────────────────
 export function calcWinnings(event) {
-  const { players = [], courses = {}, rounds = {}, games = {}, buyIn = 100 } = event;
+  const { players = [], courses = {}, rounds = {}, games = {}, buyIn = 100, weekendBuyIn } = event;
   const winnings = {};
   players.forEach((p) => { winnings[p.id] = { scatts: 0, lowNet: 0, ctp: 0, total: 0 }; });
 
-  // Scatts pot per round (use allocated amount or full buyIn as fallback)
-  const scattsBuyIn = games.scatts?.pot != null
-    ? games.scatts.pot / Math.max(players.length, 1)
+  // Scatts per-round buy-in: allocated pot ÷ 3 rounds ÷ players, else weekendBuyIn÷3, else legacy buyIn
+  const scattsBuyIn = games.scatts?.enabled && games.scatts?.pot
+    ? games.scatts.pot / 3 / Math.max(players.length, 1)
+    : weekendBuyIn
+    ? weekendBuyIn / 3
     : buyIn;
 
   [1, 2, 3].forEach((rNum) => {
