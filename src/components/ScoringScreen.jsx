@@ -1,12 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { onSnapshot } from "firebase/firestore";
 import { CARD, CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
 import { playerCourseHcp, strokesOnHole, netHole, totalPar } from "../lib/golfLogic";
+import { savePlayerScore, saveRoundCourse, updatePresence, clearPresence, PRESENCE_COL } from "../firebase/client";
 
 export default function ScoringScreen({ event, saveEvent }) {
   const { players = [], courses = {}, rounds = {}, pairings = {} } = event;
   const [activeRound, setActiveRound] = useState(1);
   const [editingCell, setEditingCell] = useState(null); // { pid, hole }
   const [activeGroup, setActiveGroup] = useState(0);
+  const [activeScorerName, setActiveScorerName] = useState(() => localStorage.getItem("po_scorer") || "");
+  const [livePresence, setLivePresence] = useState([]);
 
   const round = rounds[activeRound] || {};
   const course = courses[round.courseId || activeRound];
@@ -14,11 +18,43 @@ export default function ScoringScreen({ event, saveEvent }) {
   const groups = pairings[activeRound] || [players.map((p) => p.id)];
   const groupPlayers = (groups[activeGroup] || []).map((id) => players.find((p) => p.id === id)).filter(Boolean);
 
-  function setScore(pid, holeIdx, val) {
+  // Listen to presence collection
+  useEffect(() => {
+    const unsub = onSnapshot(PRESENCE_COL, (snap) => {
+      const now = Date.now();
+      const docs = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((d) => {
+          // Only show presence from the last 2 minutes
+          if (!d.ts) return false;
+          const age = now - d.ts.toMillis();
+          return age < 120000;
+        });
+      setLivePresence(docs);
+    }, () => {});
+    return unsub;
+  }, []);
+
+  // Update presence when editing
+  useEffect(() => {
+    if (editingCell && activeScorerName) {
+      updatePresence(activeScorerName, activeRound, activeGroup, editingCell.hole + 1);
+    }
+  }, [editingCell, activeRound, activeGroup, activeScorerName]);
+
+  // Clear presence on unmount
+  useEffect(() => {
+    return () => clearPresence();
+  }, []);
+
+  // Concurrent-safe score write using dot-notation field paths
+  async function setScore(pid, holeIdx, val) {
     const v = parseInt(val);
     const playerScores = [...(scores[pid] || Array(18).fill(0))];
     playerScores[holeIdx] = isNaN(v) || v < 0 ? 0 : v;
-    saveEvent({
+
+    // Optimistic local update
+    const updated = {
       ...event,
       rounds: {
         ...rounds,
@@ -28,7 +64,15 @@ export default function ScoringScreen({ event, saveEvent }) {
           scores: { ...scores, [pid]: playerScores },
         },
       },
-    });
+    };
+    saveEvent(updated, true); // true = local-only, skip Firestore write
+
+    // Write just this player's scores via dot-notation (concurrent-safe)
+    try {
+      await savePlayerScore(activeRound, pid, playerScores, round.courseId || activeRound);
+    } catch (e) {
+      console.warn("Score save queued offline:", e.message);
+    }
   }
 
   function stepScore(pid, holeIdx, delta) {
@@ -40,11 +84,17 @@ export default function ScoringScreen({ event, saveEvent }) {
     setScore(pid, holeIdx, next);
   }
 
-  function setRoundCourse(cId) {
+  async function setRoundCourseHandler(cId) {
+    // Optimistic local
     saveEvent({
       ...event,
       rounds: { ...rounds, [activeRound]: { ...round, courseId: cId } },
-    });
+    }, true);
+    try {
+      await saveRoundCourse(activeRound, cId);
+    } catch (e) {
+      console.warn("Course save queued offline:", e.message);
+    }
   }
 
   // Score color class based on net vs par
@@ -79,6 +129,9 @@ export default function ScoringScreen({ event, saveEvent }) {
     };
   }
 
+  // Other scorers active right now (not me)
+  const otherScorers = livePresence.filter((p) => p.name !== activeScorerName);
+
   const editing = editingCell;
 
   return (
@@ -86,6 +139,38 @@ export default function ScoringScreen({ event, saveEvent }) {
       <div style={{ fontFamily: FD, fontSize: "28px", fontWeight: 600, color: CREAM, marginBottom: "4px" }}>
         Scoring
       </div>
+
+      {/* Scorer name prompt */}
+      {!activeScorerName && (
+        <div style={{ background: CARD2, border: `1px solid ${GO}44`, borderRadius: "10px", padding: "14px", marginBottom: "14px" }}>
+          <div style={{ fontSize: "13px", color: GO, marginBottom: "8px" }}>Who's scoring? (so others can see your activity)</div>
+          <div style={{ display: "flex", gap: "8px" }}>
+            {players.map((p) => (
+              <button key={p.id} onClick={() => { setActiveScorerName(p.name); localStorage.setItem("po_scorer", p.name); }}
+                className="btn" style={{ padding: "7px 14px" }}>
+                {p.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Live presence indicator */}
+      {otherScorers.length > 0 && (
+        <div style={{
+          background: G + "15", border: `1px solid ${G}33`, borderRadius: "8px",
+          padding: "8px 12px", marginBottom: "12px", fontSize: "12px", color: CREAM,
+          display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap",
+        }}>
+          <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: G, animation: "pulse 2s infinite" }} />
+          <span style={{ color: M }}>Also scoring:</span>
+          {otherScorers.map((s) => (
+            <span key={s.id} style={{ background: G + "22", padding: "2px 8px", borderRadius: "10px", fontSize: "11px" }}>
+              {s.name} · R{s.round} G{s.group + 1} H{s.hole}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Round tabs */}
       <div className="round-tabs">
@@ -104,7 +189,7 @@ export default function ScoringScreen({ event, saveEvent }) {
           <div style={{ display: "flex", gap: "8px" }}>
             {[1, 2, 3].map((cId) => (
               courses[cId] && (
-                <button key={cId} onClick={() => setRoundCourse(cId)} className="btn" style={{ padding: "7px 14px" }}>
+                <button key={cId} onClick={() => setRoundCourseHandler(cId)} className="btn" style={{ padding: "7px 14px" }}>
                   {courses[cId].name || `Course ${cId}`}
                 </button>
               )
