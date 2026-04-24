@@ -20,7 +20,7 @@ export default function ScattsScreen({ event }) {
         Scatts
       </div>
       <div style={{ color: M, fontSize: "14px", marginBottom: "18px" }}>
-        Net skins with carryover · ${buyIn}/player/round · Pot ${totalPot.toLocaleString()}
+        Net skins · ${buyIn}/player/round · Pot ${totalPot.toLocaleString()}
       </div>
 
       {/* Round tabs */}
@@ -78,7 +78,7 @@ export default function ScattsScreen({ event }) {
               <div key={hr.hole} style={{
                 display: "flex", alignItems: "center", gap: "10px", padding: "8px 14px",
                 borderBottom: `1px solid rgba(201,168,76,0.08)`,
-                background: hr.winner ? (hr.carry > 1 ? GO + "12" : G + "0a") : "transparent",
+                background: hr.winner ? G + "0a" : "transparent",
               }}>
                 <div style={{ width: "28px", textAlign: "center", fontSize: "12px", fontWeight: 700, color: GOLD }}>
                   {hr.hole}
@@ -86,18 +86,7 @@ export default function ScattsScreen({ event }) {
                 <div style={{ flex: 1, fontSize: "13px", color: hr.winner ? CREAM : M }}>
                   {hr.winner ? hr.winner.name : hr.push ? "Push" : "—"}
                 </div>
-                {/* Carry indicator */}
-                {hr.carry > 1 && (
-                  <div style={{
-                    fontSize: "11px", fontWeight: 700, color: GO,
-                    background: GO + "22", padding: "2px 8px", borderRadius: "10px",
-                  }}>
-                    {hr.winner ? `Worth ${hr.carry}` : `${hr.carry}x carry`}
-                  </div>
-                )}
-                {hr.winner && hr.carry === 1 && (
-                  <div style={{ fontSize: "13px", color: GO, fontWeight: 700 }}>★</div>
-                )}
+                {hr.winner && <div style={{ fontSize: "13px", color: GO, fontWeight: 700 }}>★</div>}
                 {hr.winner && <div style={{ fontSize: "12px", color: G }}>Net {hr.net}</div>}
                 {hr.push && (
                   <div style={{ fontSize: "11px", color: M }}>
@@ -107,7 +96,7 @@ export default function ScattsScreen({ event }) {
               </div>
             ))}
             <div style={{ padding: "8px 14px", borderTop: `1px solid rgba(255,255,255,0.06)`, fontSize: "11px", color: M }}>
-              Pushes carry to next hole · Winner collects all carried scatts
+              Tied holes are a push — nobody wins
             </div>
           </div>
         </>

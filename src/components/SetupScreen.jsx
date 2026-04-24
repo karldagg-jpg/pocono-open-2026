@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { BG, CARD, CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
 
-export default function SetupScreen({ event, saveEvent }) {
+export default function SetupScreen({ event, saveEvent, setAdminPin, authed }) {
   const players = event.players || [];
   const [name, setName] = useState("");
   const [hcpIndex, setHcpIndex] = useState("");
   const [editId, setEditId] = useState(null);
   const [editName, setEditName] = useState("");
   const [editHcp, setEditHcp] = useState("");
+  const [pinDraft, setPinDraft] = useState("");
 
   function addPlayer() {
     if (!name.trim() || hcpIndex === "") return;
@@ -116,6 +117,40 @@ export default function SetupScreen({ event, saveEvent }) {
       {players.length === 0 && (
         <div style={{ textAlign: "center", color: M, fontSize: "14px", padding: "40px 0" }}>
           No players yet. Add up to 12 above.
+        </div>
+      )}
+
+      {/* Admin PIN section */}
+      {setAdminPin && (
+        <div style={{ background: CARD2, border: `1px solid ${GOLD}22`, borderRadius: "12px", padding: "14px", marginTop: "24px" }}>
+          <div style={{ fontSize: "11px", color: M, letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600, marginBottom: "10px" }}>
+            Admin PIN
+          </div>
+          <div style={{ fontSize: "13px", color: M, marginBottom: "10px" }}>
+            {event.adminPin
+              ? "A PIN is set. Edit screens require this PIN to access. Leaderboard, Scatts, and Winnings are always public."
+              : "No PIN set. Anyone with the link can edit scores and settings."}
+          </div>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <input
+              value={pinDraft}
+              onChange={(e) => setPinDraft(e.target.value)}
+              placeholder={event.adminPin ? "New PIN" : "Set a PIN"}
+              type="password"
+              inputMode="numeric"
+              style={{ ...inputStyle, width: "120px", flex: "none" }}
+            />
+            <button onClick={() => { if (pinDraft.trim()) { setAdminPin(pinDraft.trim()); setPinDraft(""); } }}
+              style={btnStyle}>
+              {event.adminPin ? "Update" : "Set PIN"}
+            </button>
+            {event.adminPin && (
+              <button onClick={() => { setAdminPin(null); setPinDraft(""); }}
+                style={{ ...ghostBtn, color: R, borderColor: R + "44" }}>
+                Remove
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

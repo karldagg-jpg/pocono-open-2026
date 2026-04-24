@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { onSnapshot, setDoc } from "firebase/firestore";
 import { EVENT_DOC } from "./firebase/client";
-import { BG, CREAM, G, GO, GOLD, M, FB, FD } from "./constants/theme";
+import { BG, CREAM, G, GO, GOLD, M, R, FB, FD } from "./constants/theme";
 import SetupScreen from "./components/SetupScreen";
 import CourseScreen from "./components/CourseScreen";
 import PairingsScreen from "./components/PairingsScreen";
@@ -29,6 +29,10 @@ const DEFAULT_EVENT = {
   pairings: {},
 };
 
+// Admin PIN — stored in Firestore as event.adminPin
+// Read-only screens (leaderboard, scatts, winnings) don't require PIN
+const READ_ONLY_SCREENS = ["leaderboard", "scatts", "winnings"];
+
 export default function App() {
   const [screen, setScreen] = useState("leaderboard");
   const [event, setEvent] = useState(DEFAULT_EVENT);
@@ -36,7 +40,9 @@ export default function App() {
   const [saving, setSaving] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [lastSynced, setLastSynced] = useState(null);
-  const syncTimer = useRef(null);
+  const [pinInput, setPinInput] = useState("");
+  const [authed, setAuthed] = useState(() => localStorage.getItem("po_authed") === "true");
+  const [pinError, setPinError] = useState(false);
 
   useEffect(() => {
     const on = () => setOnline(true);
@@ -63,8 +69,11 @@ export default function App() {
     return () => clearInterval(id);
   }, []);
 
-  const saveEvent = useCallback(async (updated) => {
+  // saveEvent supports a localOnly flag — when true, only updates React state
+  // (ScoringScreen uses this for optimistic updates, then writes to Firestore itself)
+  const saveEvent = useCallback(async (updated, localOnly) => {
     setEvent(updated);
+    if (localOnly) return;
     setSaving(true);
     try {
       await setDoc(EVENT_DOC, updated, { merge: true });
@@ -76,14 +85,27 @@ export default function App() {
     }
   }, []);
 
+  // PIN logic
+  const eventPin = event.adminPin;
+  const needsPin = eventPin && !authed && !READ_ONLY_SCREENS.includes(screen);
+
+  function checkPin() {
+    if (pinInput === eventPin) {
+      setAuthed(true);
+      localStorage.setItem("po_authed", "true");
+      setPinError(false);
+    } else {
+      setPinError(true);
+    }
+  }
+
+  async function setAdminPin(newPin) {
+    await saveEvent({ ...event, adminPin: newPin || null });
+  }
+
   // Determine if event has scores entered (to decide nav mode)
-  const hasScores = Object.values(event.rounds || {}).some(
-    (r) => r.scores && Object.values(r.scores).some((s) => s && s.some(Boolean))
-  );
   const hasPlayers = (event.players || []).length > 0;
   const hasCourses = Object.keys(event.courses || {}).length > 0;
-
-  // If no setup done yet, show setup tabs prominently
   const isSetupPhase = !hasPlayers || !hasCourses;
 
   const PRIMARY = isSetupPhase
@@ -151,15 +173,49 @@ export default function App() {
         </div>
       )}
 
-      <div>
-        {screen === "setup"       && <SetupScreen      event={event} saveEvent={saveEvent} />}
-        {screen === "courses"     && <CourseScreen      event={event} saveEvent={saveEvent} />}
-        {screen === "pairings"    && <PairingsScreen    event={event} saveEvent={saveEvent} />}
-        {screen === "scoring"     && <ScoringScreen     event={event} saveEvent={saveEvent} />}
-        {screen === "scatts"      && <ScattsScreen      event={event} />}
-        {screen === "leaderboard" && <LeaderboardScreen event={event} />}
-        {screen === "winnings"    && <WinningsScreen    event={event} />}
-      </div>
+      {/* PIN gate for edit screens */}
+      {needsPin ? (
+        <div style={{ maxWidth: "360px", margin: "60px auto", padding: "30px 20px", textAlign: "center" }}>
+          <div style={{ fontFamily: FD, fontSize: "24px", color: CREAM, marginBottom: "8px" }}>Enter PIN</div>
+          <div style={{ fontSize: "13px", color: M, marginBottom: "20px" }}>
+            A PIN is required to edit scores and settings.
+          </div>
+          <input
+            value={pinInput}
+            onChange={(e) => { setPinInput(e.target.value); setPinError(false); }}
+            onKeyDown={(e) => e.key === "Enter" && checkPin()}
+            type="password"
+            inputMode="numeric"
+            placeholder="PIN"
+            style={{
+              width: "120px", padding: "12px", textAlign: "center", fontSize: "24px",
+              letterSpacing: "0.3em", borderRadius: "10px",
+              border: `2px solid ${pinError ? R : GOLD + "44"}`,
+              background: "rgba(26,61,36,0.15)", color: CREAM,
+              fontFamily: FB, outline: "none",
+            }}
+          />
+          <div style={{ marginTop: "14px" }}>
+            <button onClick={checkPin} className="btn" style={{ padding: "10px 30px" }}>Unlock</button>
+          </div>
+          {pinError && (
+            <div style={{ color: R, fontSize: "12px", marginTop: "10px" }}>Wrong PIN</div>
+          )}
+          <div style={{ marginTop: "24px", fontSize: "12px", color: M }}>
+            Read-only screens (Leaderboard, Scatts, Winnings) are always accessible.
+          </div>
+        </div>
+      ) : (
+        <div>
+          {screen === "setup"       && <SetupScreen      event={event} saveEvent={saveEvent} setAdminPin={setAdminPin} authed={authed} />}
+          {screen === "courses"     && <CourseScreen      event={event} saveEvent={saveEvent} />}
+          {screen === "pairings"    && <PairingsScreen    event={event} saveEvent={saveEvent} />}
+          {screen === "scoring"     && <ScoringScreen     event={event} saveEvent={saveEvent} />}
+          {screen === "scatts"      && <ScattsScreen      event={event} />}
+          {screen === "leaderboard" && <LeaderboardScreen event={event} />}
+          {screen === "winnings"    && <WinningsScreen    event={event} />}
+        </div>
+      )}
     </div>
   );
 }

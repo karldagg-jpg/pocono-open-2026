@@ -140,3 +140,9 @@
   font-size: 10px; color: #8a9e8c; opacity: 0.7;
   white-space: nowrap;
 }
+
+/* Presence pulse */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
