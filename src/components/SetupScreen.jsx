@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { BG, CARD, CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
+import { buildTestEvent } from "../lib/testData";
+import { resetEvent } from "../firebase/client";
 
 export default function SetupScreen({ event, saveEvent, setAdminPin, authed }) {
   const players = event.players || [];
@@ -9,6 +11,20 @@ export default function SetupScreen({ event, saveEvent, setAdminPin, authed }) {
   const [editName, setEditName] = useState("");
   const [editHcp, setEditHcp] = useState("");
   const [pinDraft, setPinDraft] = useState("");
+  const [seedLoading, setSeedLoading] = useState(false);
+
+  async function loadTestData() {
+    if (!window.confirm("Load test data? This will replace all current players, courses, scores, and game settings.")) return;
+    setSeedLoading(true);
+    try {
+      const testEvent = buildTestEvent();
+      await resetEvent(testEvent);
+    } catch (e) {
+      alert("Failed to load test data: " + e.message);
+    } finally {
+      setSeedLoading(false);
+    }
+  }
 
   function addPlayer() {
     if (!name.trim() || hcpIndex === "") return;
@@ -115,6 +131,20 @@ export default function SetupScreen({ event, saveEvent, setAdminPin, authed }) {
           No players yet. Add up to 12 above.
         </div>
       )}
+
+      {/* Test data */}
+      <div style={{ background: CARD2, border: `1px solid ${GOLD}22`, borderRadius: "12px", padding: "14px", marginTop: "24px" }}>
+        <div style={{ fontSize: "11px", color: M, letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600, marginBottom: "6px" }}>
+          Test Data
+        </div>
+        <div style={{ fontSize: "13px", color: M, marginBottom: "10px" }}>
+          Load 12 players, 3 courses, and completed scores for rounds 1 &amp; 2 (round 3 in progress).
+        </div>
+        <button onClick={loadTestData} disabled={seedLoading}
+          style={{ ...btnStyle, background: GO, opacity: seedLoading ? 0.6 : 1 }}>
+          {seedLoading ? "Loading…" : "Load Test Data"}
+        </button>
+      </div>
 
       {/* Admin PIN section */}
       {setAdminPin && (

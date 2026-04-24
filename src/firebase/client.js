@@ -56,6 +56,11 @@ export async function updatePresence(playerName, roundNum, groupIdx, holeNum) {
   });
 }
 
+// Full document replace — used for seeding test data
+export async function resetEvent(data) {
+  await setDoc(EVENT_DOC, data);
+}
+
 export async function clearPresence() {
   try {
     await deleteDoc(presenceDoc());
