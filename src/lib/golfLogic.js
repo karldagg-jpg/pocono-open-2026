@@ -30,12 +30,14 @@ export function playerCourseHcp(player, course) {
 }
 
 // ── Scatts ───────────────────────────────────────────────────────────────────
-// Returns { holeWinners: {pid: scatts}, totalScatts, scattValue, holeResults: [{hole, winner, net}] }
+// Returns { holeWinners: {pid: scatts}, totalScatts, scattValue, holeResults: [{hole, winner, net, carry}] }
+// carry = number of holes this scatt is worth (pushed holes carry forward)
 export function calcScatts(roundScores, course, players, buyIn) {
   const totalPot = players.length * buyIn;
   const holeWinners = {};
   const holeResults = [];
   let totalScatts = 0;
+  let carry = 1; // starts at 1, increases with each push
 
   for (let h = 0; h < 18; h++) {
     const nets = players
@@ -48,7 +50,7 @@ export function calcScatts(roundScores, course, players, buyIn) {
       .filter(Boolean);
 
     if (nets.length === 0) {
-      holeResults.push({ hole: h + 1, winner: null, net: null, push: false });
+      holeResults.push({ hole: h + 1, winner: null, net: null, push: false, carry });
       continue;
     }
 
@@ -57,11 +59,13 @@ export function calcScatts(roundScores, course, players, buyIn) {
 
     if (winners.length === 1) {
       const pid = winners[0].id;
-      holeWinners[pid] = (holeWinners[pid] || 0) + 1;
-      totalScatts++;
-      holeResults.push({ hole: h + 1, winner: winners[0], net: minNet, push: false });
+      holeWinners[pid] = (holeWinners[pid] || 0) + carry;
+      totalScatts += carry;
+      holeResults.push({ hole: h + 1, winner: winners[0], net: minNet, push: false, carry });
+      carry = 1; // reset after a win
     } else {
-      holeResults.push({ hole: h + 1, winner: null, net: minNet, push: true, tied: winners });
+      holeResults.push({ hole: h + 1, winner: null, net: minNet, push: true, tied: winners, carry });
+      carry++; // push — next hole is worth more
     }
   }
 

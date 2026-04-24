@@ -98,9 +98,9 @@ export default function WinningsScreen({ event }) {
 
 function StatBox({ label, value, color }) {
   return (
-    <div style={{ background: "#1a2a1c", border: `1px solid rgba(201,168,76,0.15)`, borderRadius: "10px", padding: "14px", textAlign: "center" }}>
-      <div style={{ fontSize: "22px", fontWeight: 700, color }}>{value}</div>
-      <div style={{ fontSize: "10px", color: "#8a9e8c", marginTop: "3px", letterSpacing: "0.06em", textTransform: "uppercase" }}>{label}</div>
+    <div className="stat-box">
+      <div className="val" style={{ color }}>{value}</div>
+      <div className="lbl">{label}</div>
     </div>
   );
 }

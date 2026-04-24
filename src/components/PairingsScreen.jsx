@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { CARD, CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
 import { autoPairRound3 } from "../lib/golfLogic";
 
@@ -131,15 +132,13 @@ export default function PairingsScreen({ event, saveEvent }) {
   );
 }
 
-import { useState } from "react";
-
 const btnStyle = {
   padding: "10px 18px",
   borderRadius: "8px",
   border: "none",
-  background: "#1a6b3a",
-  color: "#f0ece0",
-  fontFamily: "'Inter','Helvetica Neue',sans-serif",
+  background: G,
+  color: CREAM,
+  fontFamily: FB,
   fontSize: "13px",
   fontWeight: 700,
   cursor: "pointer",
@@ -148,9 +147,9 @@ const btnStyle = {
 const removeBtn = {
   padding: "3px 8px",
   borderRadius: "5px",
-  border: "1px solid rgba(192,57,43,0.3)",
+  border: `1px solid ${R}4d`,
   background: "transparent",
-  color: "#c0392b",
+  color: R,
   fontSize: "12px",
   cursor: "pointer",
 };
