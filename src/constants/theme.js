@@ -1,0 +1,11 @@
+export const BG    = "#0f1a10";
+export const CARD  = "#162118";
+export const CARD2 = "#1a2a1c";
+export const CREAM = "#f0ece0";
+export const G     = "#1a6b3a";
+export const GO    = "#b8962e";
+export const GOLD  = "#c9a84c";
+export const M     = "#8a9e8c";
+export const R     = "#c0392b";
+export const FD    = "'Cormorant Garamond','Georgia',serif";
+export const FB    = "'Inter','Helvetica Neue',sans-serif";
