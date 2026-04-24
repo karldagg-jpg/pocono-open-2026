@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { onSnapshot, setDoc } from "firebase/firestore";
+import { onSnapshot, setDoc, updateDoc } from "firebase/firestore";
 import { EVENT_DOC } from "./firebase/client";
 import { BG, CREAM, G, GO, GOLD, M, R, FB, FD } from "./constants/theme";
 import SetupScreen from "./components/SetupScreen";
@@ -71,17 +71,26 @@ export default function App() {
     return () => clearInterval(id);
   }, []);
 
-  // saveEvent supports a localOnly flag — when true, only updates React state
-  // (ScoringScreen uses this for optimistic updates, then writes to Firestore itself)
-  const saveEvent = useCallback(async (updated, localOnly) => {
+  // saveEvent(localState, patch?)
+  //   patch = true        → localOnly (ScoringScreen optimistic updates)
+  //   patch = { ... }     → write only these fields to Firestore (safe against stale state)
+  //   patch = undefined   → write full localState (legacy fallback, avoid for new screens)
+  const saveEvent = useCallback(async (updated, patch) => {
     setEvent(updated);
-    if (localOnly) return;
+    if (patch === true) return; // localOnly
     setSaving(true);
+    const firestoreData = (patch && typeof patch === "object") ? patch : updated;
     try {
-      await setDoc(EVENT_DOC, updated, { merge: true });
+      await updateDoc(EVENT_DOC, firestoreData);
       setLastSynced(new Date());
     } catch (e) {
-      console.warn("Queued offline:", e.message);
+      if (e.code === "not-found") {
+        // First-time doc creation
+        await setDoc(EVENT_DOC, updated);
+        setLastSynced(new Date());
+      } else {
+        console.warn("Queued offline:", e.message);
+      }
     } finally {
       setSaving(false);
     }
@@ -102,7 +111,8 @@ export default function App() {
   }
 
   async function setAdminPin(newPin) {
-    await saveEvent({ ...event, adminPin: newPin || null });
+    const patch = { adminPin: newPin || null };
+    await saveEvent({ ...event, ...patch }, patch);
   }
 
   // Determine if event has scores entered (to decide nav mode)

@@ -12,18 +12,16 @@ export default function SetupScreen({ event, saveEvent, setAdminPin, authed }) {
 
   function addPlayer() {
     if (!name.trim() || hcpIndex === "") return;
-    const newPlayer = {
-      id: Date.now(),
-      name: name.trim(),
-      hcpIndex: parseFloat(hcpIndex),
-    };
-    saveEvent({ ...event, players: [...players, newPlayer] });
+    const newPlayer = { id: Date.now(), name: name.trim(), hcpIndex: parseFloat(hcpIndex) };
+    const newPlayers = [...players, newPlayer];
+    saveEvent({ ...event, players: newPlayers }, { players: newPlayers });
     setName("");
     setHcpIndex("");
   }
 
   function removePlayer(id) {
-    saveEvent({ ...event, players: players.filter((p) => p.id !== id) });
+    const newPlayers = players.filter((p) => p.id !== id);
+    saveEvent({ ...event, players: newPlayers }, { players: newPlayers });
   }
 
   function startEdit(p) {
@@ -33,12 +31,10 @@ export default function SetupScreen({ event, saveEvent, setAdminPin, authed }) {
   }
 
   function saveEdit() {
-    saveEvent({
-      ...event,
-      players: players.map((p) =>
-        p.id === editId ? { ...p, name: editName.trim(), hcpIndex: parseFloat(editHcp) } : p
-      ),
-    });
+    const newPlayers = players.map((p) =>
+      p.id === editId ? { ...p, name: editName.trim(), hcpIndex: parseFloat(editHcp) } : p
+    );
+    saveEvent({ ...event, players: newPlayers }, { players: newPlayers });
     setEditId(null);
   }
 
