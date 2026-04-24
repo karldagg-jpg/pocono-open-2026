@@ -14,10 +14,21 @@ export default function GamesScreen({ event, saveEvent }) {
     GAME_KEYS.forEach((k) => { g[k] = { ...defaults[k], ...(savedGames[k] || {}) }; });
     return g;
   });
+  // optOuts: set of player IDs not participating in games
+  const [optOuts, setOptOuts] = useState(() => new Set(event.optOuts || []));
   const [ctpRound, setCtpRound] = useState(1);
 
-  const numPlayers = players.length || 0;
+  const gamblingPlayers = players.filter((p) => !optOuts.has(p.id));
+  const numPlayers = gamblingPlayers.length;
   const totalPot = numPlayers * (weekendBuyIn || 0);
+
+  function toggleOptOut(pid) {
+    setOptOuts((prev) => {
+      const next = new Set(prev);
+      if (next.has(pid)) next.delete(pid); else next.add(pid);
+      return next;
+    });
+  }
   const allocated = GAME_KEYS.filter((k) => games[k].enabled).reduce((s, k) => s + (Number(games[k].pot) || 0), 0);
   const remaining = totalPot - allocated;
 
@@ -56,7 +67,7 @@ export default function GamesScreen({ event, saveEvent }) {
   }
 
   function save() {
-    saveEvent({ ...event, weekendBuyIn, games });
+    saveEvent({ ...event, weekendBuyIn, games, optOuts: [...optOuts] });
   }
 
   const pcts = games.lowNet.payoutPcts || [50, 30, 20];
@@ -100,6 +111,28 @@ export default function GamesScreen({ event, saveEvent }) {
           </div>
         </div>
       </div>
+
+      {/* Players in */}
+      {players.length > 0 && (
+        <div className="card2" style={{ marginBottom: "16px" }}>
+          <div className="card-header" style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>Players In</span>
+            <span style={{ color: M, fontWeight: 400 }}>{numPlayers} of {players.length} gambling</span>
+          </div>
+          {players.map((p) => {
+            const isIn = !optOuts.has(p.id);
+            return (
+              <div key={p.id} onClick={() => toggleOptOut(p.id)}
+                style={{ padding: "11px 14px", borderBottom: `1px solid #d0d8d0`, display: "flex", alignItems: "center", gap: "12px", cursor: "pointer" }}>
+                <input type="checkbox" checked={isIn} onChange={() => toggleOptOut(p.id)}
+                  style={{ width: "16px", height: "16px", cursor: "pointer", accentColor: G }} />
+                <div style={{ flex: 1, fontSize: "14px", color: isIn ? CREAM : M }}>{p.name}</div>
+                {!isIn && <div style={{ fontSize: "11px", color: M, background: "#e8e8e4", padding: "2px 8px", borderRadius: "8px" }}>opt out</div>}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Allocation */}
       <div className="card2" style={{ marginBottom: "16px" }}>

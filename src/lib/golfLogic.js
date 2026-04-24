@@ -70,6 +70,14 @@ export function calcScatts(roundScores, course, players, buyIn) {
   return { holeWinners, totalScatts, scattValue, totalPot, holeResults };
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+// Returns players who are participating in games (not opted out)
+export function gamblingPlayers(event) {
+  const { players = [], optOuts = [] } = event;
+  const out = new Set(optOuts);
+  return players.filter((p) => !out.has(p.id));
+}
+
 // ── Net leaderboard ──────────────────────────────────────────────────────────
 // Returns sorted array of { player, roundNets: [net1, net2, net3], total, roundGross, totalGross }
 export function calcLeaderboard(event) {
@@ -117,13 +125,15 @@ export function calcLeaderboard(event) {
 // payoutPcts: e.g. [50, 30, 20] — must sum to 100
 // Ties: tied players split the combined prize money for the positions they occupy
 export function calcLowNet(event) {
-  const { players = [], games = {} } = event;
+  const { games = {} } = event;
   const cfg = games.lowNet || {};
   const pot = cfg.pot || 0;
   const pcts = cfg.payoutPcts || [50, 30, 20];
+  const players = gamblingPlayers(event);
   if (!pot || !players.length) return { payouts: {}, positions: [], pot };
 
-  const board = calcLeaderboard(event);
+  // Only rank gambling players
+  const board = calcLeaderboard(event).filter((r) => players.some((p) => p.id === r.player.id));
   // Only players who completed all rounds
   const finished = board.filter((r) => r.roundsPlayed >= (cfg.minRounds || 3));
   if (!finished.length) return { payouts: {}, positions: [], pot };
@@ -165,7 +175,8 @@ export function calcLowNet(event) {
 // ctpResults: { [roundNum]: { [holeIdx]: playerId } }
 // Returns per-player payout
 export function calcCTP(event) {
-  const { players = [], games = {} } = event;
+  const { games = {} } = event;
+  const players = gamblingPlayers(event);
   const cfg = games.ctp || {};
   const pot = cfg.pot || 0;
   const ctpResults = cfg.results || {}; // { roundNum: { holeIdx: playerId } }
@@ -196,7 +207,8 @@ export function calcCTP(event) {
 
 // ── Winnings ─────────────────────────────────────────────────────────────────
 export function calcWinnings(event) {
-  const { players = [], courses = {}, rounds = {}, games = {}, buyIn = 100, weekendBuyIn } = event;
+  const { courses = {}, rounds = {}, games = {}, buyIn = 100, weekendBuyIn } = event;
+  const players = gamblingPlayers(event);
   const winnings = {};
   players.forEach((p) => { winnings[p.id] = { scatts: 0, lowNet: 0, ctp: 0, total: 0 }; });
 
