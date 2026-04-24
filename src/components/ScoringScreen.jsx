@@ -8,6 +8,7 @@ export default function ScoringScreen({ event, saveEvent }) {
   const { players = [], courses = {}, rounds = {}, pairings = {} } = event;
   const [activeRound, setActiveRound] = useState(1);
   const [editingCell, setEditingCell] = useState(null); // { pid, hole }
+  const [keypadInput, setKeypadInput] = useState("");
   const [activeGroup, setActiveGroup] = useState(0);
   const [activeScorerName, setActiveScorerName] = useState(() => localStorage.getItem("po_scorer") || "");
   const [livePresence, setLivePresence] = useState([]);
@@ -82,6 +83,38 @@ export default function ScoringScreen({ event, saveEvent }) {
     if (next < 1) return;
     if (next > 15) return;
     setScore(pid, holeIdx, next);
+  }
+
+  // Sync keypad display when active cell changes
+  useEffect(() => {
+    if (editingCell) {
+      const current = (scores[editingCell.pid] || [])[editingCell.hole];
+      setKeypadInput(current ? String(current) : "");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingCell?.pid, editingCell?.hole]);
+
+  function padDigit(d) {
+    setKeypadInput((prev) => {
+      const next = (prev + d).replace(/^0+/, "").slice(0, 2);
+      const val = parseInt(next);
+      if (!isNaN(val) && val > 0 && val <= 15) setScore(editingCell.pid, editingCell.hole, val);
+      return next;
+    });
+  }
+
+  function padBack() {
+    setKeypadInput((prev) => {
+      const next = prev.slice(0, -1);
+      const val = parseInt(next) || 0;
+      setScore(editingCell.pid, editingCell.hole, val);
+      return next;
+    });
+  }
+
+  function padDone() {
+    setEditingCell(null);
+    setKeypadInput("");
   }
 
   async function setRoundCourseHandler(cId) {
@@ -217,66 +250,6 @@ export default function ScoringScreen({ event, saveEvent }) {
             </div>
           )}
 
-          {/* Stepper for active cell */}
-          {editing && (() => {
-            const p = players.find((pl) => pl.id === editing.pid);
-            if (!p) return null;
-            const h = editing.hole;
-            const par = course.par[h] || 4;
-            const si = course.si[h] || (h + 1);
-            const chcp = playerCourseHcp(p, course);
-            const strokes = strokesOnHole(chcp, si);
-            const gross = (scores[p.id] || [])[h] || 0;
-            const net = gross ? netHole(gross, chcp, si) : null;
-            const vsPar = net !== null ? net - par : null;
-
-            return (
-              <div style={{
-                background: CARD, border: `1px solid ${G}55`, borderRadius: "12px",
-                padding: "14px", marginBottom: "14px",
-                display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap",
-              }}>
-                <div style={{ flex: 1, minWidth: "120px" }}>
-                  <div style={{ fontSize: "15px", color: CREAM, fontWeight: 600 }}>{p.name}</div>
-                  <div style={{ fontSize: "12px", color: M }}>
-                    Hole {h + 1} · Par {par} · SI {si}
-                    {strokes > 0 ? ` · +${strokes} stroke${strokes > 1 ? "s" : ""}` : ""}
-                  </div>
-                </div>
-
-                {/* Gross stepper */}
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: "10px", color: M, marginBottom: "4px" }}>GROSS</div>
-                  <div className="stepper">
-                    <button onClick={() => stepScore(p.id, h, -1)}>−</button>
-                    <div className="stepper-val">{gross || "—"}</div>
-                    <button onClick={() => stepScore(p.id, h, 1)}>+</button>
-                  </div>
-                </div>
-
-                {/* Net display */}
-                <div style={{ textAlign: "center", minWidth: "50px" }}>
-                  <div style={{ fontSize: "10px", color: M, marginBottom: "4px" }}>NET</div>
-                  <div style={{
-                    fontSize: "24px", fontWeight: 700,
-                    color: net === null ? M : vsPar < 0 ? R : vsPar === 0 ? G : CREAM,
-                  }}>
-                    {net !== null ? net : "—"}
-                  </div>
-                  {vsPar !== null && (
-                    <div style={{ fontSize: "11px", color: vsPar < 0 ? R : vsPar === 0 ? G : M }}>
-                      {vsPar === 0 ? "E" : vsPar > 0 ? `+${vsPar}` : vsPar}
-                    </div>
-                  )}
-                </div>
-
-                <button onClick={() => setEditingCell(null)}
-                  style={{ ...ghostBtn, padding: "6px 10px", fontSize: "11px", alignSelf: "flex-start" }}>
-                  Done
-                </button>
-              </div>
-            );
-          })()}
 
           {/* Scorecard grid */}
           <div className="card2">
@@ -398,6 +371,81 @@ export default function ScoringScreen({ event, saveEvent }) {
           Set up courses first, then assign a course to Round {activeRound}.
         </div>
       )}
+
+      {/* Numeric keypad overlay */}
+      {editing && course && (() => {
+        const p = players.find((pl) => pl.id === editing.pid);
+        if (!p) return null;
+        const h = editing.hole;
+        const par = course.par[h] || 4;
+        const si = course.si[h] || (h + 1);
+        const chcp = playerCourseHcp(p, course);
+        const strokes = strokesOnHole(chcp, si);
+        const gross = parseInt(keypadInput) || 0;
+        const net = gross ? netHole(gross, chcp, si) : null;
+        const vsPar = net !== null ? net - par : null;
+
+        return (
+          <>
+            {/* Backdrop */}
+            <div onClick={padDone} style={{ position: "fixed", inset: 0, zIndex: 199, background: "rgba(0,0,0,0.25)" }} />
+
+            {/* Bottom sheet */}
+            <div style={{
+              position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 200,
+              background: "#fff", borderRadius: "18px 18px 0 0",
+              boxShadow: "0 -4px 24px rgba(0,0,0,0.18)",
+              borderTop: `3px solid ${G}`,
+            }}>
+              {/* Header */}
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "14px 16px 10px", borderBottom: `1px solid #d0d8d0` }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: "16px", fontWeight: 700, color: CREAM }}>{p.name}</div>
+                  <div style={{ fontSize: "12px", color: M, marginTop: "2px" }}>
+                    Hole {h + 1} · Par {par} · SI {si}
+                    {strokes > 0 ? ` · +${strokes} stroke${strokes > 1 ? "s" : ""}` : ""}
+                  </div>
+                </div>
+
+                {/* Score + net display */}
+                <div style={{ textAlign: "center", minWidth: "80px" }}>
+                  <div style={{ fontSize: "42px", fontWeight: 800, color: CREAM, lineHeight: 1, fontFamily: FB }}>
+                    {keypadInput || "—"}
+                  </div>
+                  {net !== null ? (
+                    <div style={{ fontSize: "12px", marginTop: "2px", color: vsPar < 0 ? R : vsPar === 0 ? G : M, fontWeight: 600 }}>
+                      Net {net} · {vsPar === 0 ? "E" : vsPar > 0 ? `+${vsPar}` : vsPar}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: "11px", color: M }}>enter score</div>
+                  )}
+                </div>
+
+                {/* Stepper for fine-tuning */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <button onClick={() => { stepScore(p.id, h, 1); setKeypadInput(String(Math.min((parseInt(keypadInput) || 0) + 1, 15))); }}
+                    style={stepBtn}>+</button>
+                  <button onClick={() => { stepScore(p.id, h, -1); setKeypadInput((prev) => { const n = Math.max((parseInt(prev) || 0) - 1, 1); return String(n); }); }}
+                    style={stepBtn}>−</button>
+                </div>
+              </div>
+
+              {/* Numpad grid */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1px", background: "#d0d8d0", margin: "0" }}>
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => (
+                  <button key={d} onClick={() => padDigit(String(d))} style={padBtn}>{d}</button>
+                ))}
+                <button onClick={padBack} style={{ ...padBtn, fontSize: "22px", color: M }}>⌫</button>
+                <button onClick={() => padDigit("0")} style={padBtn}>0</button>
+                <button onClick={padDone} style={{ ...padBtn, background: G, color: "#fff", fontWeight: 800, fontSize: "22px" }}>✓</button>
+              </div>
+
+              {/* Safe area spacer (iOS home bar) */}
+              <div style={{ height: "env(safe-area-inset-bottom, 8px)", background: "#fff" }} />
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }
@@ -408,4 +456,20 @@ const ghostBtn = {
   background: "transparent", color: "#8a9e8c",
   fontFamily: "'Inter','Helvetica Neue',sans-serif",
   fontSize: "13px", cursor: "pointer",
+};
+
+const padBtn = {
+  padding: "0", height: "64px",
+  border: "none", background: "#f8f9f6",
+  color: "#1a1f1a", fontFamily: "'Inter','Helvetica Neue',sans-serif",
+  fontSize: "26px", fontWeight: 600, cursor: "pointer",
+  display: "flex", alignItems: "center", justifyContent: "center",
+};
+
+const stepBtn = {
+  width: "38px", height: "38px", borderRadius: "8px",
+  border: "1px solid #c8d0c8", background: "#f2f4f0",
+  color: "#1a6b3a", fontSize: "20px", fontWeight: 700,
+  cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+  fontFamily: "'Inter','Helvetica Neue',sans-serif",
 };
