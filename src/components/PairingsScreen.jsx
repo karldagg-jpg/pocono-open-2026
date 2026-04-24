@@ -15,12 +15,14 @@ export default function PairingsScreen({ event, saveEvent }) {
   function assignToGroup(pid, groupIdx) {
     const next = groups.map((g) => g.filter((id) => id !== pid));
     if (groupIdx !== null) next[groupIdx] = [...next[groupIdx], pid];
-    saveEvent({ ...event, pairings: { ...pairings, [activeRound]: next } });
+    const newPairings = { ...pairings, [activeRound]: next };
+    saveEvent({ ...event, pairings: newPairings }, { pairings: newPairings });
   }
 
   function autoFill() {
     const auto = autoPairRound3(event);
-    saveEvent({ ...event, pairings: { ...pairings, [activeRound]: auto } });
+    const newPairings = { ...pairings, [activeRound]: auto };
+    saveEvent({ ...event, pairings: newPairings }, { pairings: newPairings });
   }
 
   function playerName(id) {

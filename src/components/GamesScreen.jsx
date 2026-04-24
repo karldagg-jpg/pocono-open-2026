@@ -67,7 +67,8 @@ export default function GamesScreen({ event, saveEvent }) {
   }
 
   function save() {
-    saveEvent({ ...event, weekendBuyIn, games, optOuts: [...optOuts] });
+    const patch = { weekendBuyIn, games, optOuts: [...optOuts] };
+    saveEvent({ ...event, ...patch }, patch);
   }
 
   const pcts = games.lowNet.payoutPcts || [50, 30, 20];
