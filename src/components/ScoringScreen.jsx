@@ -16,7 +16,12 @@ export default function ScoringScreen({ event, saveEvent }) {
   const round = rounds[activeRound] || {};
   const course = courses[round.courseId || activeRound];
   const scores = round.scores || {};
-  const groups = pairings[activeRound] || [players.map((p) => p.id)];
+  // Pairings stored as object { 0: [ids], 1: [ids], 2: [ids] }
+  const groupsObj = pairings[activeRound] || {};
+  const hasGroups = Object.keys(groupsObj).length > 0;
+  const groups = hasGroups
+    ? [groupsObj[0] || [], groupsObj[1] || [], groupsObj[2] || []]
+    : [players.map((p) => p.id)];
   const groupPlayers = (groups[activeGroup] || []).map((id) => players.find((p) => p.id === id)).filter(Boolean);
 
   // Listen to presence collection
