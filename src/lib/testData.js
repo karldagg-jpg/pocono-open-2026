@@ -92,10 +92,11 @@ export function buildTestEvent() {
   });
   rounds[3] = { courseId: 3, scores: r3scores };
 
+  // Firestore doesn't support nested arrays — groups stored as object { 0: [...], 1: [...], 2: [...] }
   const pairings = {
-    1: [[1, 2, 3, 4],   [5, 6, 7, 8],   [9, 10, 11, 12]],
-    2: [[9, 10, 11, 12], [1, 2, 3, 4],  [5, 6, 7, 8]],
-    3: [[1, 3, 9, 10],   [5, 8, 2, 11], [4, 6, 7, 12]],
+    1: { 0: [1, 2, 3, 4],    1: [5, 6, 7, 8],    2: [9, 10, 11, 12] },
+    2: { 0: [9, 10, 11, 12], 1: [1, 2, 3, 4],    2: [5, 6, 7, 8]    },
+    3: { 0: [1, 3, 9, 10],   1: [5, 8, 2, 11],   2: [4, 6, 7, 12]   },
   };
 
   const weekendBuyIn = 200;

@@ -6,7 +6,9 @@ export default function PairingsScreen({ event, saveEvent }) {
   const players = event.players || [];
   const pairings = event.pairings || {};
   const [activeRound, setActiveRound] = useState(1);
-  const groups = pairings[activeRound] || [[], [], []];
+  // Pairings stored as object { 0: [ids], 1: [ids], 2: [ids] } (Firestore doesn't allow nested arrays)
+  const groupsObj = pairings[activeRound] || {};
+  const groups = [groupsObj[0] || [], groupsObj[1] || [], groupsObj[2] || []];
 
   // All player ids not yet assigned in this round
   const assigned = new Set(groups.flat());
@@ -15,12 +17,13 @@ export default function PairingsScreen({ event, saveEvent }) {
   function assignToGroup(pid, groupIdx) {
     const next = groups.map((g) => g.filter((id) => id !== pid));
     if (groupIdx !== null) next[groupIdx] = [...next[groupIdx], pid];
-    const newPairings = { ...pairings, [activeRound]: next };
+    const nextObj = { 0: next[0], 1: next[1], 2: next[2] };
+    const newPairings = { ...pairings, [activeRound]: nextObj };
     saveEvent({ ...event, pairings: newPairings }, { pairings: newPairings });
   }
 
   function autoFill() {
-    const auto = autoPairRound3(event);
+    const auto = autoPairRound3(event); // already returns object format
     const newPairings = { ...pairings, [activeRound]: auto };
     saveEvent({ ...event, pairings: newPairings }, { pairings: newPairings });
   }

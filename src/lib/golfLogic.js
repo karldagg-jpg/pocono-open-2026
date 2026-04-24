@@ -268,7 +268,7 @@ export function autoPairRound3(event) {
       return a.total - b.total;
     });
 
-  const groups = [[], [], []];
+  const groups = { 0: [], 1: [], 2: [] };
   sorted.forEach((r, i) => groups[Math.floor(i / 4)].push(r.player.id));
   return groups;
 }
