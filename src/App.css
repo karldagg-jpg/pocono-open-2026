@@ -3,50 +3,50 @@
 /* Scrollable tables */
 .scorecard-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
-/* Round tab buttons (reused on Scoring, Scatts, Pairings, Courses) */
+/* Round tab buttons */
 .round-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
 .round-tab {
   flex: 1; padding: 9px; border-radius: 10px;
   font-family: 'Inter','Helvetica Neue',sans-serif;
   font-size: 13px; font-weight: 600; cursor: pointer;
-  border: 1px solid rgba(201,168,76,0.2);
-  background: transparent; color: #8a9e8c;
+  border: 1px solid #c8d0c8;
+  background: #fff; color: #5a6b5c;
 }
 .round-tab.active {
-  border-color: #1a6b3a; background: rgba(26,107,58,0.13); color: #f0ece0;
+  border-color: #1a6b3a; background: #e8f4ed; color: #1a1f1a;
 }
 
 /* Stat boxes */
 .stat-box {
-  background: #1a2a1c; border: 1px solid rgba(201,168,76,0.15);
+  background: #fff; border: 1px solid #d8ddd8;
   border-radius: 10px; padding: 14px; text-align: center;
 }
 .stat-box .val { font-size: 22px; font-weight: 700; }
 .stat-box .lbl {
-  font-size: 10px; color: #8a9e8c; margin-top: 3px;
+  font-size: 10px; color: #5a6b5c; margin-top: 3px;
   letter-spacing: 0.06em; text-transform: uppercase;
 }
 
 /* Card panels */
 .card {
-  background: #162118; border: 1px solid rgba(201,168,76,0.13);
+  background: #fff; border: 1px solid #d8ddd8;
   border-radius: 12px; overflow: clip;
 }
 .card2 {
-  background: #1a2a1c; border: 1px solid rgba(201,168,76,0.15);
+  background: #eef0eb; border: 1px solid #d0d8d0;
   border-radius: 12px; overflow: clip;
 }
 .card-header {
-  padding: 10px 14px; border-bottom: 1px solid rgba(201,168,76,0.2);
-  font-size: 11px; color: #8a9e8c; letter-spacing: 0.08em;
+  padding: 10px 14px; border-bottom: 1px solid #d0d8d0;
+  font-size: 11px; color: #5a6b5c; letter-spacing: 0.08em;
   text-transform: uppercase; font-weight: 600;
 }
 
 /* Input base */
 .input {
   padding: 9px 12px; border-radius: 8px;
-  border: 1px solid rgba(201,168,76,0.2);
-  background: rgba(26,61,36,0.15); color: #f0ece0;
+  border: 1px solid #c8d0c8;
+  background: #fff; color: #1a1f1a;
   font-size: 14px; font-family: 'Inter','Helvetica Neue',sans-serif;
   outline: none; box-sizing: border-box;
 }
@@ -54,24 +54,24 @@
 /* Primary button */
 .btn {
   padding: 10px 22px; border-radius: 8px; border: none;
-  background: #1a6b3a; color: #f0ece0;
+  background: #1a6b3a; color: #fff;
   font-family: 'Inter','Helvetica Neue',sans-serif;
   font-size: 13px; font-weight: 700; cursor: pointer;
 }
-.btn-gold { background: #b8962e; }
+.btn-gold { background: #8a6a00; }
 
 /* Ghost button */
 .btn-ghost {
   padding: 6px 14px; border-radius: 7px;
-  border: 1px solid rgba(201,168,76,0.3);
-  background: transparent; color: #8a9e8c;
+  border: 1px solid #c8d0c8;
+  background: transparent; color: #5a6b5c;
   font-family: 'Inter','Helvetica Neue',sans-serif;
   font-size: 13px; cursor: pointer;
 }
 
 /* Label */
 .field-label {
-  font-size: 11px; color: #8a9e8c; letter-spacing: 0.08em;
+  font-size: 11px; color: #5a6b5c; letter-spacing: 0.08em;
   text-transform: uppercase; font-weight: 600; margin-bottom: 5px;
 }
 
@@ -82,62 +82,62 @@
 }
 .scorecard th, .scorecard td {
   padding: 6px 4px; text-align: center; font-size: 12px;
-  border-bottom: 1px solid rgba(201,168,76,0.1);
+  border-bottom: 1px solid #d8ddd8;
   white-space: nowrap;
 }
 .scorecard th {
-  color: #8a9e8c; font-size: 10px; font-weight: 600;
+  color: #5a6b5c; font-size: 10px; font-weight: 600;
   letter-spacing: 0.05em; text-transform: uppercase;
-  position: sticky; top: 0; background: #1a2a1c;
-  border-bottom: 1px solid rgba(201,168,76,0.25);
+  position: sticky; top: 0; background: #eef0eb;
+  border-bottom: 1px solid #c0ccc0;
 }
 .scorecard .player-name {
   text-align: left; padding-left: 10px; font-weight: 500;
-  color: #f0ece0; font-size: 13px; position: sticky; left: 0;
-  background: #1a2a1c; z-index: 1; min-width: 90px;
+  color: #1a1f1a; font-size: 13px; position: sticky; left: 0;
+  background: #eef0eb; z-index: 1; min-width: 90px;
 }
 .scorecard .hole-cell {
   min-width: 34px; cursor: pointer; position: relative;
 }
-.scorecard .hole-cell:hover { background: rgba(26,107,58,0.15); }
-.scorecard .hole-cell.active { background: rgba(26,107,58,0.25); border-radius: 4px; }
+.scorecard .hole-cell:hover { background: #e0ede6; }
+.scorecard .hole-cell.active { background: #c8e8d4; border-radius: 4px; }
 .scorecard .total-cell {
   font-weight: 700; font-size: 13px; min-width: 44px;
-  border-left: 1px solid rgba(201,168,76,0.2);
+  border-left: 1px solid #c0ccc0;
 }
-.scorecard .par-row td { color: #8a9e8c; font-size: 11px; font-weight: 600; }
-.scorecard .si-row td { color: rgba(201,168,76,0.5); font-size: 10px; }
-.scorecard .nine-sep { border-left: 2px solid rgba(201,168,76,0.25); }
+.scorecard .par-row td { color: #5a6b5c; font-size: 11px; font-weight: 600; }
+.scorecard .si-row td { color: #8a9a8c; font-size: 10px; }
+.scorecard .nine-sep { border-left: 2px solid #b0c0b0; }
+
+/* Score colors — on light bg */
+.score-eagle { color: #b02020; font-weight: 700; }
+.score-birdie { color: #b02020; }
+.score-par { color: #1a6b3a; font-weight: 600; }
+.score-bogey { color: #1a1f1a; }
+.score-double { color: #8a9a8c; }
+.score-empty { color: #c0ccc0; }
 
 /* Score stepper */
 .stepper {
   display: flex; align-items: center; gap: 0;
-  background: #162118; border: 1px solid rgba(201,168,76,0.25);
+  background: #fff; border: 2px solid #1a6b3a;
   border-radius: 10px; overflow: hidden;
 }
 .stepper button {
   width: 52px; height: 52px; border: none; cursor: pointer;
   font-size: 22px; font-weight: 700;
   font-family: 'Inter','Helvetica Neue',sans-serif;
-  background: transparent; color: #f0ece0;
+  background: transparent; color: #1a6b3a;
 }
-.stepper button:active { background: rgba(26,107,58,0.3); }
+.stepper button:active { background: #e8f4ed; }
 .stepper .stepper-val {
   width: 56px; text-align: center; font-size: 24px;
-  font-weight: 700; color: #f0ece0;
+  font-weight: 700; color: #1a1f1a;
 }
-
-/* Score colors */
-.score-eagle { color: #c0392b; font-weight: 700; }
-.score-birdie { color: #c0392b; }
-.score-par { color: #1a6b3a; }
-.score-bogey { color: #f0ece0; }
-.score-double { color: #8a9e8c; }
-.score-empty { color: rgba(138,158,140,0.4); }
 
 /* Synced indicator */
 .synced {
-  font-size: 10px; color: #8a9e8c; opacity: 0.7;
+  font-size: 10px; color: #5a6b5c; opacity: 0.8;
   white-space: nowrap;
 }
 

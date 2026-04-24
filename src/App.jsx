@@ -131,8 +131,8 @@ export default function App() {
       {/* Header */}
       <div style={{
         position: "sticky", top: 0, zIndex: 100,
-        background: "rgba(15,26,16,0.97)", backdropFilter: "blur(8px)",
-        borderBottom: `1px solid ${GOLD}22`,
+        background: "rgba(242,244,240,0.97)", backdropFilter: "blur(8px)",
+        borderBottom: `1px solid #c8d0c8`,
       }}>
         <div style={{ maxWidth: "900px", margin: "0 auto", padding: "0 14px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: "10px", paddingBottom: "6px" }}>
@@ -170,7 +170,7 @@ export default function App() {
       </div>
 
       {!online && (
-        <div style={{ background: "#7a4f0022", borderBottom: `1px solid #e6a81744`, padding: "7px 14px", textAlign: "center", fontSize: "12px", color: "#e6a817" }}>
+        <div style={{ background: "#fff3cd", borderBottom: `1px solid #e6c84a`, padding: "7px 14px", textAlign: "center", fontSize: "12px", color: "#7a5500" }}>
           Offline — scores saved locally, will sync when signal returns
         </div>
       )}
