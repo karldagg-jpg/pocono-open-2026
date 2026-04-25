@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, collection, updateDoc, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import { getAuth, signInAnonymously } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyA0ubEbHoYbfCSjfNxHUkt_fr_6WMb3t5Y",
@@ -16,6 +17,10 @@ const app = initializeApp(firebaseConfig);
 const db = initializeFirestore(app, {
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
 });
+
+// Anonymous auth so Firestore security rules can require auth
+const auth = getAuth(app);
+signInAnonymously(auth).catch(() => {});
 
 export const EVENT_DOC = doc(db, "weekends", "pocono-2026");
 export const PRESENCE_COL = collection(db, "weekends", "pocono-2026", "presence");
