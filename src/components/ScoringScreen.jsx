@@ -415,6 +415,20 @@ export default function ScoringScreen({ event, saveEvent }) {
                       </button>
                     </div>
                   </div>
+
+                  {/* Tap to par */}
+                  {!gross && (
+                    <button
+                      onClick={() => setScore(p.id, activeHole, par)}
+                      style={{
+                        width: "100%", padding: "6px", borderRadius: "7px",
+                        border: `1px solid ${G}55`, background: G + "12",
+                        color: G, fontFamily: FB, fontSize: "12px", fontWeight: 600,
+                        cursor: "pointer", touchAction: "manipulation",
+                      }}>
+                      Par {par}
+                    </button>
+                  )}
                 </div>
               );
             })}
