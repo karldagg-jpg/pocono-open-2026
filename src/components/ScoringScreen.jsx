@@ -419,8 +419,8 @@ export default function ScoringScreen({ event, saveEvent }) {
                           ...(gross ? {} : {
                             border: `2px dashed ${G}88`,
                             borderRadius: "4px",
-                            margin: "4px 0",
-                            height: "44px",
+                            margin: "2px 0",
+                            height: "48px",
                           }),
                         }}>
                         {!gross ? (
