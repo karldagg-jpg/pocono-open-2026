@@ -424,10 +424,7 @@ export default function ScoringScreen({ event, saveEvent }) {
                           }),
                         }}>
                         {!gross ? (
-                          <>
-                            <span style={{ fontSize: "11px", fontWeight: 700, color: G, lineHeight: 1 }}>PAR</span>
-                            <span style={{ fontSize: "10px", color: G, opacity: 0.75, lineHeight: 1.5 }}>tap = {par}</span>
-                          </>
+                          <span style={{ fontSize: "12px", fontWeight: 700, color: G, whiteSpace: "nowrap" }}>tap = Par {par}</span>
                         ) : (
                           <span style={{ fontSize: "24px", fontWeight: 700, color: "#1a1f1a" }}>{gross}</span>
                         )}
