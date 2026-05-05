@@ -401,10 +401,10 @@ export default function ScoringScreen({ event, saveEvent }) {
                   {/* Gross stepper */}
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
                     <div style={{ fontSize: "10px", color: M, letterSpacing: "0.06em", textTransform: "uppercase" }}>Gross</div>
-                    <div className="stepper" style={{ flex: 1, maxWidth: "200px" }}>
+                    <div className="stepper" style={{ flex: 1, maxWidth: "200px", overflow: !gross ? "visible" : "hidden" }}>
                       <button
                         onClick={() => stepScore(p.id, activeHole, -1)}
-                        style={{ touchAction: "manipulation" }}>
+                        style={{ touchAction: "manipulation", borderRadius: !gross ? "8px 0 0 8px" : undefined }}>
                         −
                       </button>
                       <div
@@ -415,12 +415,18 @@ export default function ScoringScreen({ event, saveEvent }) {
                           alignItems: "center", justifyContent: "center", gap: "1px",
                           cursor: !gross ? "pointer" : "default",
                           touchAction: "manipulation",
-                          background: !gross ? `${G}18` : "transparent",
+                          background: !gross ? `${G}15` : "transparent",
+                          ...(gross ? {} : {
+                            border: `2px dashed ${G}88`,
+                            borderRadius: "4px",
+                            margin: "4px 2px",
+                            height: "44px",
+                          }),
                         }}>
                         {!gross ? (
                           <>
                             <span style={{ fontSize: "11px", fontWeight: 700, color: G, lineHeight: 1 }}>PAR</span>
-                            <span style={{ fontSize: "10px", color: G, opacity: 0.8, lineHeight: 1.4 }}>tap = {par}</span>
+                            <span style={{ fontSize: "10px", color: G, opacity: 0.75, lineHeight: 1.5 }}>tap = {par}</span>
                           </>
                         ) : (
                           <span style={{ fontSize: "24px", fontWeight: 700, color: "#1a1f1a" }}>{gross}</span>
@@ -428,7 +434,7 @@ export default function ScoringScreen({ event, saveEvent }) {
                       </div>
                       <button
                         onClick={() => stepScore(p.id, activeHole, 1)}
-                        style={{ touchAction: "manipulation" }}>
+                        style={{ touchAction: "manipulation", borderRadius: !gross ? "0 8px 8px 0" : undefined }}>
                         +
                       </button>
                     </div>
