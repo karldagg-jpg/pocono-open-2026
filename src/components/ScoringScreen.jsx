@@ -412,15 +412,15 @@ export default function ScoringScreen({ event, saveEvent }) {
                         style={{
                           flex: 1, height: "52px",
                           display: "flex", flexDirection: "column",
-                          alignItems: "center", justifyContent: "center", gap: "1px",
+                          alignItems: "center", justifyContent: "center", gap: "3px",
                           cursor: !gross ? "pointer" : "default",
                           touchAction: "manipulation",
                           background: !gross ? `${G}15` : "transparent",
                           ...(gross ? {} : {
                             border: `2px dashed ${G}88`,
                             borderRadius: "4px",
-                            margin: "2px 0",
-                            height: "48px",
+                            margin: "0",
+                            height: "52px",
                           }),
                         }}>
                         {!gross ? (
