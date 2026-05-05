@@ -14,7 +14,7 @@ import GamesScreen from "./components/GamesScreen";
 const TABS = [
   { id: "leaderboard", label: "Leaderboard" },
   { id: "scoring",     label: "Scoring" },
-  { id: "scatts",      label: "Scatts" },
+  { id: "scatts",      label: "Scats" },
   { id: "winnings",    label: "Winnings" },
   { id: "games",       label: "Games" },
   { id: "pairings",    label: "Pairings" },
@@ -214,7 +214,7 @@ export default function App() {
             <div style={{ color: R, fontSize: "12px", marginTop: "10px" }}>Wrong PIN</div>
           )}
           <div style={{ marginTop: "24px", fontSize: "12px", color: M }}>
-            Read-only screens (Leaderboard, Scatts, Winnings) are always accessible.
+            Read-only screens (Leaderboard, Scats, Winnings) are always accessible.
           </div>
         </div>
       ) : (

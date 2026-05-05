@@ -43,7 +43,7 @@ export default function WinningsScreen({ event }) {
 
       {/* ── Scatts ── */}
       {(games.scatts?.enabled !== false) && (
-        <Section title="Scatts / Skins" pot={games.scatts?.pot} color={G}>
+        <Section title="Scats / Skins" pot={games.scatts?.pot} color={G}>
           {scattsByRound.map((r, ri) => {
             if (!r) return (
               <div key={ri} style={{ padding: "10px 14px", borderBottom: `1px solid rgba(201,168,76,0.08)`, display: "flex", justifyContent: "space-between" }}>
@@ -158,7 +158,7 @@ export default function WinningsScreen({ event }) {
             <div key={p.id} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", borderBottom: `1px solid rgba(201,168,76,0.08)` }}>
               <div style={{ flex: 1, fontSize: "14px", color: w.total > 0 ? CREAM : M }}>{p.name}</div>
               <div style={{ fontSize: "11px", color: M, textAlign: "right" }}>
-                {w.scatts > 0 && <span style={{ color: G }}>Scatts ${w.scatts} </span>}
+                {w.scatts > 0 && <span style={{ color: G }}>Scats ${w.scatts} </span>}
                 {w.lowNet > 0 && <span style={{ color: GO }}>LN ${w.lowNet} </span>}
                 {w.ctp > 0 && <span style={{ color: GOLD }}>CTP ${w.ctp}</span>}
               </div>

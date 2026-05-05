@@ -23,7 +23,7 @@ export default function ScattsScreen({ event }) {
   return (
     <div style={{ maxWidth: "600px", margin: "0 auto", padding: "22px 14px" }}>
       <div style={{ fontFamily: FD, fontSize: "28px", fontWeight: 600, color: CREAM, marginBottom: "4px" }}>
-        Scatts
+        Scats
       </div>
       <div style={{ color: M, fontSize: "14px", marginBottom: "18px" }}>
         Net skins · ${buyIn}/player/round · Pot ${totalPot.toLocaleString()}
@@ -49,7 +49,7 @@ export default function ScattsScreen({ event }) {
             </div>
             <div className="stat-box">
               <div className="val" style={{ color: G }}>{result.totalScatts}</div>
-              <div className="lbl">Scatts Won</div>
+              <div className="lbl">Scats Won</div>
             </div>
             <div className="stat-box">
               <div className="val" style={{ color: GOLD }}>{result.totalScatts ? `$${result.scattValue.toFixed(0)}` : "—"}</div>
@@ -69,7 +69,7 @@ export default function ScattsScreen({ event }) {
                   return (
                     <div key={pid} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", borderBottom: `1px solid rgba(201,168,76,0.08)` }}>
                       <div style={{ flex: 1, fontSize: "14px", color: CREAM }}>{p?.name || "?"}</div>
-                      <div style={{ fontSize: "13px", color: G }}>{scatts} scatt{scatts !== 1 ? "s" : ""}</div>
+                      <div style={{ fontSize: "13px", color: G }}>{scatts} scat{scatts !== 1 ? "s" : ""}</div>
                       <div style={{ fontSize: "16px", fontWeight: 700, color: GO }}>${Math.round(payout)}</div>
                     </div>
                   );

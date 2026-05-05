@@ -154,7 +154,7 @@ export default function SetupScreen({ event, saveEvent, setAdminPin, authed }) {
           </div>
           <div style={{ fontSize: "13px", color: M, marginBottom: "10px" }}>
             {event.adminPin
-              ? "A PIN is set. Edit screens require this PIN to access. Leaderboard, Scatts, and Winnings are always public."
+              ? "A PIN is set. Edit screens require this PIN to access. Leaderboard, Scats, and Winnings are always public."
               : "No PIN set. Anyone with the link can edit scores and settings."}
           </div>
           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
