@@ -12,6 +12,7 @@ export default function SetupScreen({ event, saveEvent, setAdminPin, authed }) {
   const [editHcp, setEditHcp] = useState("");
   const [pinDraft, setPinDraft] = useState("");
   const [seedLoading, setSeedLoading] = useState(false);
+  const [clearLoading, setClearLoading] = useState(false);
 
   async function loadTestData() {
     if (!window.confirm("Load test data? This will replace all current players, courses, scores, and game settings.")) return;
@@ -23,6 +24,20 @@ export default function SetupScreen({ event, saveEvent, setAdminPin, authed }) {
       alert("Failed to load test data: " + e.message);
     } finally {
       setSeedLoading(false);
+    }
+  }
+
+  async function clearAllData() {
+    if (!window.confirm("Clear all data? This will remove all players, courses, scores, pairings, and game settings. The admin PIN will be kept.")) return;
+    setClearLoading(true);
+    try {
+      const blank = { players: [], courses: {}, rounds: {}, pairings: {}, games: {} };
+      if (event.adminPin) blank.adminPin = event.adminPin;
+      await resetEvent(blank);
+    } catch (e) {
+      alert("Failed to clear data: " + e.message);
+    } finally {
+      setClearLoading(false);
     }
   }
 
@@ -140,10 +155,16 @@ export default function SetupScreen({ event, saveEvent, setAdminPin, authed }) {
         <div style={{ fontSize: "13px", color: M, marginBottom: "10px" }}>
           Load 12 players, 3 courses, and completed scores for rounds 1 &amp; 2 (round 3 in progress).
         </div>
-        <button onClick={loadTestData} disabled={seedLoading}
-          style={{ ...btnStyle, background: GO, opacity: seedLoading ? 0.6 : 1 }}>
-          {seedLoading ? "Loading…" : "Load Test Data"}
-        </button>
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <button onClick={loadTestData} disabled={seedLoading}
+            style={{ ...btnStyle, background: GO, opacity: seedLoading ? 0.6 : 1 }}>
+            {seedLoading ? "Loading…" : "Load Test Data"}
+          </button>
+          <button onClick={clearAllData} disabled={clearLoading}
+            style={{ ...btnStyle, background: R, opacity: clearLoading ? 0.6 : 1 }}>
+            {clearLoading ? "Clearing…" : "Clear All Data"}
+          </button>
+        </div>
       </div>
 
       {/* Admin PIN section */}
