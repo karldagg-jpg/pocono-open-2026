@@ -2,7 +2,7 @@ import { useState } from "react";
 import { CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
 
 const GAME_KEYS = ["scatts", "lowNet", "ctp"];
-const GAME_LABELS = { scatts: "Scatts / Skins", lowNet: "Low Net Tournament", ctp: "Closest to Pin" };
+const GAME_LABELS = { scatts: "Scats / Skins", lowNet: "Low Net Tournament", ctp: "Closest to Pin" };
 
 export default function GamesScreen({ event, saveEvent }) {
   const { players = [], courses = {}, games: savedGames = {} } = event;

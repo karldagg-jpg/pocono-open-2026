@@ -407,7 +407,25 @@ export default function ScoringScreen({ event, saveEvent }) {
                         style={{ touchAction: "manipulation" }}>
                         −
                       </button>
-                      <div className="stepper-val">{gross || "—"}</div>
+                      <div
+                        onClick={() => !gross && setScore(p.id, activeHole, par)}
+                        style={{
+                          flex: 1, height: "52px",
+                          display: "flex", flexDirection: "column",
+                          alignItems: "center", justifyContent: "center", gap: "1px",
+                          cursor: !gross ? "pointer" : "default",
+                          touchAction: "manipulation",
+                          background: !gross ? `${G}18` : "transparent",
+                        }}>
+                        {!gross ? (
+                          <>
+                            <span style={{ fontSize: "11px", fontWeight: 700, color: G, lineHeight: 1 }}>PAR</span>
+                            <span style={{ fontSize: "10px", color: G, opacity: 0.8, lineHeight: 1.4 }}>tap = {par}</span>
+                          </>
+                        ) : (
+                          <span style={{ fontSize: "24px", fontWeight: 700, color: "#1a1f1a" }}>{gross}</span>
+                        )}
+                      </div>
                       <button
                         onClick={() => stepScore(p.id, activeHole, 1)}
                         style={{ touchAction: "manipulation" }}>
@@ -415,20 +433,6 @@ export default function ScoringScreen({ event, saveEvent }) {
                       </button>
                     </div>
                   </div>
-
-                  {/* Tap to par */}
-                  {!gross && (
-                    <button
-                      onClick={() => setScore(p.id, activeHole, par)}
-                      style={{
-                        width: "100%", padding: "6px", borderRadius: "7px",
-                        border: `1px solid ${G}55`, background: G + "12",
-                        color: G, fontFamily: FB, fontSize: "12px", fontWeight: 600,
-                        cursor: "pointer", touchAction: "manipulation",
-                      }}>
-                      Par {par}
-                    </button>
-                  )}
                 </div>
               );
             })}
