@@ -399,9 +399,9 @@ export default function ScoringScreen({ event, saveEvent }) {
                   </div>
 
                   {/* Gross stepper */}
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
-                    <div style={{ fontSize: "10px", color: M, letterSpacing: "0.06em", textTransform: "uppercase" }}>Gross</div>
-                    <div className="stepper" style={{ flex: 1, maxWidth: "200px", overflow: !gross ? "visible" : "hidden" }}>
+                  <div>
+                    <div style={{ fontSize: "10px", color: M, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: "4px" }}>Gross</div>
+                    <div className="stepper" style={{ width: "100%", overflow: !gross ? "visible" : "hidden" }}>
                       <button
                         onClick={() => stepScore(p.id, activeHole, -1)}
                         style={{ touchAction: "manipulation", borderRadius: !gross ? "8px 0 0 8px" : undefined }}>
