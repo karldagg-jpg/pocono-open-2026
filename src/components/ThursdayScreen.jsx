@@ -36,6 +36,9 @@ export default function ThursdayScreen({ event, saveEvent }) {
   const selected = players.filter(p => playerIds.includes(p.id));
   const totalPar = course.par.reduce((a, b) => a + b, 0);
 
+  // 9-hole rule: half the full course handicap, rounded
+  function hcp9(p) { return Math.round(hcp9(p) / 2); }
+
   function saveThu(patch) {
     const newThu = { ...thu, ...patch };
     saveEvent({ ...event, thursday: newThu }, { thursday: newThu });
@@ -74,7 +77,7 @@ export default function ThursdayScreen({ event, saveEvent }) {
   function sixiesScore(pid) {
     const p = players.find(x => x.id === pid);
     if (!p) return null;
-    const chcp = playerCourseHcp(p, course);
+    const chcp = hcp9(p);
     let total = 0, any = false;
     for (let hi = 0; hi < 9; hi++) {
       if (getEffective(pid, hi) !== true) continue;
@@ -126,7 +129,7 @@ export default function ThursdayScreen({ event, saveEvent }) {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "6px", marginBottom: "12px" }}>
               {players.map(p => {
                 const sel = playerIds.includes(p.id);
-                const chcp = playerCourseHcp(p, course);
+                const chcp = hcp9(p);
                 return (
                   <button key={p.id} onClick={() => togglePlayer(p.id)} style={{
                     padding: "10px 12px", borderRadius: "9px", textAlign: "left", cursor: "pointer",
@@ -217,7 +220,7 @@ export default function ThursdayScreen({ event, saveEvent }) {
             marginBottom: "20px",
           }}>
             {selected.map(p => {
-              const chcp    = playerCourseHcp(p, course);
+              const chcp    = hcp9(p);
               const strokes = strokesOnHole(chcp, si);
               const gross   = scores[p.id]?.[activeHole] || 0;
               const net     = gross ? gross - strokes : null;
@@ -319,7 +322,7 @@ export default function ThursdayScreen({ event, saveEvent }) {
               </thead>
               <tbody>
                 {selected.map(p => {
-                  const chcp      = playerCourseHcp(p, course);
+                  const chcp      = hcp9(p);
                   const gross     = scores[p.id] || [];
                   const grossTot  = gross.reduce((s, v) => s + (v || 0), 0);
                   const s6        = sixiesScore(p.id);
