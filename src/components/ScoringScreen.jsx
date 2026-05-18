@@ -162,10 +162,11 @@ function LostBallTimer() {
 }
 
 export default function ScoringScreen({ event, saveEvent }) {
-  const { players = [], courses = {}, rounds = {}, pairings = {} } = event;
+  const { players = [], courses = {}, rounds = {}, pairings = {}, games = {} } = event;
   const [activeRound, setActiveRound] = useState(1);
   const [activeGroup, setActiveGroup] = useState(0);
   const [activeHole, setActiveHole] = useState(0); // 0-indexed
+  const [ctpDist, setCtpDist] = useState("");
 
   const round = rounds[activeRound] || {};
   const course = courses[round.courseId || activeRound];
@@ -212,6 +213,43 @@ export default function ScoringScreen({ event, saveEvent }) {
     if (next < 1) return;
     if (next > 15) return;
     setScore(pid, holeIdx, next);
+  }
+
+  // CTP helpers
+  const ctpHoles = games?.ctp?.holes?.[activeRound] || [];
+  const isCTPHole = ctpHoles.includes(activeHole);
+  const ctpWinnerId = games?.ctp?.results?.[activeRound]?.[activeHole] ?? null;
+  const ctpWinner = ctpWinnerId != null ? players.find(p => p.id === ctpWinnerId) : null;
+  const ctpSavedDist = games?.ctp?.distances?.[activeRound]?.[activeHole] ?? "";
+
+  useEffect(() => { setCtpDist(ctpSavedDist); }, [activeHole, activeRound]);
+
+  function saveCTP(winnerId, distance) {
+    const ctp = games?.ctp || {};
+    const newCtp = {
+      ...ctp,
+      results: {
+        ...(ctp.results || {}),
+        [activeRound]: { ...(ctp.results?.[activeRound] || {}), [activeHole]: winnerId },
+      },
+      distances: {
+        ...(ctp.distances || {}),
+        [activeRound]: { ...(ctp.distances?.[activeRound] || {}), [activeHole]: distance },
+      },
+    };
+    const newGames = { ...games, ctp: newCtp };
+    saveEvent({ ...event, games: newGames }, { games: newGames });
+  }
+
+  function clearCTP() {
+    const ctp = games?.ctp || {};
+    const results = { ...(ctp.results || {}), [activeRound]: { ...(ctp.results?.[activeRound] || {}) } };
+    const distances = { ...(ctp.distances || {}), [activeRound]: { ...(ctp.distances?.[activeRound] || {}) } };
+    delete results[activeRound][activeHole];
+    delete distances[activeRound][activeHole];
+    const newGames = { ...games, ctp: { ...ctp, results, distances } };
+    saveEvent({ ...event, games: newGames }, { games: newGames });
+    setCtpDist("");
   }
 
   async function setRoundCourseHandler(cId) {
@@ -353,6 +391,70 @@ export default function ScoringScreen({ event, saveEvent }) {
               Hole {activeHole + 1} &nbsp;·&nbsp; Par {par} &nbsp;·&nbsp; SI {si}
             </div>
           </div>
+
+          {/* CTP card — only on configured par-3 CTP holes */}
+          {isCTPHole && (
+            <div style={{ background: CARD, border: `2px solid ${GOLD}66`, borderRadius: "14px", padding: "14px", marginBottom: "16px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
+                <span style={{ fontSize: "18px" }}>🎯</span>
+                <div>
+                  <div style={{ fontSize: "14px", fontWeight: 700, color: CREAM }}>Closest to Pin — Hole {activeHole + 1}</div>
+                  {ctpWinner
+                    ? <div style={{ fontSize: "12px", color: G, fontWeight: 600 }}>
+                        {ctpWinner.name}{ctpSavedDist ? ` · ${ctpSavedDist} ft` : ""}
+                      </div>
+                    : <div style={{ fontSize: "12px", color: M }}>Tap a player to record winner</div>
+                  }
+                </div>
+                {ctpWinner && (
+                  <button onClick={clearCTP} style={{ marginLeft: "auto", padding: "4px 10px", borderRadius: "6px", border: `1px solid ${R}44`, background: "transparent", color: R, fontSize: "12px", cursor: "pointer" }}>
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              {/* Distance input */}
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
+                <div style={{ fontSize: "12px", color: M, whiteSpace: "nowrap" }}>Distance</div>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={ctpDist}
+                  onChange={e => setCtpDist(e.target.value)}
+                  placeholder="e.g. 8.5"
+                  style={{ width: "90px", padding: "7px 10px", borderRadius: "8px", border: "1px solid #c8d0c8", background: "#fff", color: CREAM, fontSize: "14px", fontWeight: 600, outline: "none", textAlign: "center" }}
+                />
+                <div style={{ fontSize: "13px", color: M }}>ft</div>
+              </div>
+
+              {/* Player grid — entire field */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: "6px" }}>
+                {players.map(p => {
+                  const isWinner = p.id === ctpWinnerId;
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => saveCTP(p.id, ctpDist)}
+                      style={{
+                        padding: "10px 8px",
+                        borderRadius: "9px",
+                        border: `2px solid ${isWinner ? G : "#c8d0c8"}`,
+                        background: isWinner ? G + "18" : "#fff",
+                        color: isWinner ? G : CREAM,
+                        fontSize: "13px",
+                        fontWeight: isWinner ? 700 : 500,
+                        cursor: "pointer",
+                        textAlign: "center",
+                        touchAction: "manipulation",
+                      }}>
+                      {isWinner && "✓ "}{p.name.split(" ")[0]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Player stepper cards */}
           <div style={{
