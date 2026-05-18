@@ -147,8 +147,48 @@ export default function SetupScreen({ event, saveEvent, setAdminPin, authed }) {
         </div>
       )}
 
-      {/* Test data */}
+      {/* Backup / Restore */}
       <div style={{ background: CARD2, border: `1px solid ${GOLD}22`, borderRadius: "12px", padding: "14px", marginTop: "24px" }}>
+        <div style={{ fontSize: "11px", color: M, letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600, marginBottom: "6px" }}>
+          Backup &amp; Restore
+        </div>
+        <div style={{ fontSize: "13px", color: M, marginBottom: "10px" }}>
+          Export your data to a JSON file, then restore it any time.
+        </div>
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <button onClick={() => {
+            const json = JSON.stringify(event, null, 2);
+            const blob = new Blob([json], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `pocono-open-backup-${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }} style={btnStyle}>
+            Export Backup
+          </button>
+          <label style={{ ...btnStyle, display: "inline-flex", alignItems: "center", cursor: "pointer" }}>
+            Import Backup
+            <input type="file" accept=".json" style={{ display: "none" }} onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              try {
+                const text = await file.text();
+                const data = JSON.parse(text);
+                if (!window.confirm("Restore this backup? This will replace all current data.")) return;
+                await resetEvent(data);
+              } catch {
+                alert("Failed to read backup file.");
+              }
+              e.target.value = "";
+            }} />
+          </label>
+        </div>
+      </div>
+
+      {/* Test data */}
+      <div style={{ background: CARD2, border: `1px solid ${GOLD}22`, borderRadius: "12px", padding: "14px", marginTop: "16px" }}>
         <div style={{ fontSize: "11px", color: M, letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600, marginBottom: "6px" }}>
           Test Data
         </div>
