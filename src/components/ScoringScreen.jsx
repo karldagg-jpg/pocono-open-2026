@@ -168,6 +168,7 @@ export default function ScoringScreen({ event, saveEvent }) {
   const [activeHole, setActiveHole] = useState(0); // 0-indexed
   const [ctpFt, setCtpFt] = useState("");
   const [ctpIn, setCtpIn] = useState("");
+  const [showCtpLog, setShowCtpLog] = useState(false);
 
   const round = rounds[activeRound] || {};
   const course = courses[round.courseId || activeRound];
@@ -266,12 +267,13 @@ export default function ScoringScreen({ event, saveEvent }) {
     const ctp = games?.ctp || {};
     const results = { ...(ctp.results || {}), [activeRound]: { ...(ctp.results?.[activeRound] || {}) } };
     const distances = { ...(ctp.distances || {}), [activeRound]: { ...(ctp.distances?.[activeRound] || {}) } };
+    const log = { ...(ctp.log || {}), [activeRound]: { ...(ctp.log?.[activeRound] || {}) } };
     delete results[activeRound][activeHole];
     delete distances[activeRound][activeHole];
-    // log is intentionally preserved — clear only removes the leader designation
-    const newGames = { ...games, ctp: { ...ctp, results, distances } };
+    delete log[activeRound][activeHole];
+    const newGames = { ...games, ctp: { ...ctp, results, distances, log } };
     saveEvent({ ...event, games: newGames }, { games: newGames });
-    setCtpFt(""); setCtpIn("");
+    setCtpFt(""); setCtpIn(""); setShowCtpLog(false);
   }
 
   async function setRoundCourseHandler(cId) {
@@ -417,42 +419,47 @@ export default function ScoringScreen({ event, saveEvent }) {
           {/* CTP card — only on configured par-3 CTP holes */}
           {isCTPHole && (
             <div style={{ background: CARD, border: `2px solid ${GOLD}66`, borderRadius: "14px", padding: "14px", marginBottom: "16px" }}>
-              {/* Header */}
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
-                <span style={{ fontSize: "18px" }}>🎯</span>
-                <div>
-                  <div style={{ fontSize: "14px", fontWeight: 700, color: CREAM }}>Closest to Pin — Hole {activeHole + 1}</div>
+              {/* Header row */}
+              <div style={{ display: "flex", alignItems: "center", marginBottom: "12px" }}>
+                <span style={{ fontSize: "16px", marginRight: "8px" }}>🎯</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: "13px", fontWeight: 700, color: CREAM }}>CTP — Hole {activeHole + 1}</div>
                   {ctpWinner
-                    ? <div style={{ fontSize: "12px", color: G, fontWeight: 600 }}>
-                        Leading: {ctpWinner.name}{ctpSavedDist ? ` · ${ctpSavedDist}` : ""}
-                      </div>
-                    : <div style={{ fontSize: "12px", color: M }}>Enter distance · tap player to set leader</div>
+                    ? <div style={{ fontSize: "12px", color: G, fontWeight: 600 }}>{ctpWinner.name}{ctpSavedDist ? ` · ${ctpSavedDist}` : ""}</div>
+                    : <div style={{ fontSize: "11px", color: M }}>Enter distance then tap player</div>
                   }
                 </div>
-                {ctpWinner && (
-                  <button onClick={clearCTP} style={{ marginLeft: "auto", padding: "4px 10px", borderRadius: "6px", border: `1px solid ${R}44`, background: "transparent", color: R, fontSize: "12px", cursor: "pointer" }}>
-                    Clear
-                  </button>
-                )}
+                <div style={{ display: "flex", gap: "6px" }}>
+                  {ctpLog.length > 0 && (
+                    <button onClick={() => setShowCtpLog(v => !v)} style={{ padding: "4px 10px", borderRadius: "6px", border: `1px solid #c8d0c8`, background: "transparent", color: M, fontSize: "11px", cursor: "pointer" }}>
+                      Log ({ctpLog.length}) {showCtpLog ? "▲" : "▼"}
+                    </button>
+                  )}
+                  {(ctpWinnerId != null || ctpLog.length > 0) && (
+                    <button onClick={clearCTP} style={{ padding: "4px 10px", borderRadius: "6px", border: `1px solid ${R}44`, background: "transparent", color: R, fontSize: "11px", cursor: "pointer" }}>
+                      Clear
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Feet + inches inputs */}
-              <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "14px" }}>
-                <div style={{ fontSize: "12px", color: M, whiteSpace: "nowrap" }}>Distance</div>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "12px" }}>
+                <span style={{ fontSize: "12px", color: M }}>Dist</span>
                 <input
                   type="number" min="0" max="99" value={ctpFt}
                   onChange={e => setCtpFt(e.target.value)}
                   placeholder="0"
-                  style={{ width: "64px", padding: "7px 8px", borderRadius: "8px", border: "1px solid #c8d0c8", background: "#fff", color: CREAM, fontSize: "15px", fontWeight: 700, outline: "none", textAlign: "center" }}
+                  style={{ width: "60px", padding: "7px 8px", borderRadius: "8px", border: "1px solid #c8d0c8", background: "#fff", color: CREAM, fontSize: "15px", fontWeight: 700, outline: "none", textAlign: "center" }}
                 />
-                <span style={{ fontSize: "13px", color: M }}>ft</span>
+                <span style={{ fontSize: "12px", color: M }}>ft</span>
                 <input
                   type="number" min="0" max="11" value={ctpIn}
                   onChange={e => setCtpIn(e.target.value)}
                   placeholder="0"
-                  style={{ width: "64px", padding: "7px 8px", borderRadius: "8px", border: "1px solid #c8d0c8", background: "#fff", color: CREAM, fontSize: "15px", fontWeight: 700, outline: "none", textAlign: "center" }}
+                  style={{ width: "60px", padding: "7px 8px", borderRadius: "8px", border: "1px solid #c8d0c8", background: "#fff", color: CREAM, fontSize: "15px", fontWeight: 700, outline: "none", textAlign: "center" }}
                 />
-                <span style={{ fontSize: "13px", color: M }}>in</span>
+                <span style={{ fontSize: "12px", color: M }}>in</span>
               </div>
 
               {/* Player grid — entire field, grey out non-leaders once set */}
@@ -484,11 +491,9 @@ export default function ScoringScreen({ event, saveEvent }) {
                 })}
               </div>
 
-              {ctpLog.length > 0 && (
+              {/* Collapsible measurement log */}
+              {showCtpLog && ctpLog.length > 0 && (
                 <div style={{ marginTop: "12px", borderTop: "1px solid #e8ede8", paddingTop: "10px" }}>
-                  <div style={{ fontSize: "10px", color: M, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: "6px" }}>
-                    Measurement Log
-                  </div>
                   {ctpLog.map((entry, i) => (
                     <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", padding: "3px 0", borderBottom: "1px solid #f0f4f0" }}>
                       <span style={{ color: entry.name === ctpWinner?.name ? G : CREAM, fontWeight: entry.name === ctpWinner?.name ? 700 : 400 }}>
