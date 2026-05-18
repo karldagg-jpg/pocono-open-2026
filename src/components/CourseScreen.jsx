@@ -87,50 +87,59 @@ export default function CourseScreen({ event, saveEvent }) {
           </div>
         </div>
 
-        {/* Par row */}
-        <Label>Par per hole · Total: {tp}</Label>
-        <div style={{ overflowX: "auto", marginBottom: "10px" }}>
-          <table style={{ borderCollapse: "collapse", minWidth: "700px", width: "100%" }}>
-            <thead>
-              <tr>
-                <td style={thStyle}>Hole</td>
-                {Array.from({ length: 18 }, (_, i) => (
-                  <td key={i} style={{ ...thStyle, textAlign: "center" }}>{i + 1}</td>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td style={tdLabel}>Par</td>
-                {(editing.par || DEFAULT_PAR).map((p, i) => (
-                  <td key={i} style={{ padding: "2px" }}>
-                    <input
-                      value={p || ""}
-                      onChange={(e) => setHole(editing.par || DEFAULT_PAR, i, e.target.value)}
-                      type="number"
-                      min="3" max="6"
-                      style={holeInput}
-                    />
-                  </td>
-                ))}
-              </tr>
-              <tr>
-                <td style={tdLabel}>SI</td>
-                {(editing.si || DEFAULT_SI).map((s, i) => (
-                  <td key={i} style={{ padding: "2px" }}>
-                    <input
-                      value={s || ""}
-                      onChange={(e) => setHole(editing.si || DEFAULT_SI, i, e.target.value)}
-                      type="number"
-                      min="1" max="18"
-                      style={holeInput}
-                    />
-                  </td>
-                ))}
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        {/* Par / SI — front 9 then back 9 */}
+        {[{ label: "Front 9", start: 0 }, { label: "Back 9", start: 9 }].map(({ label, start }) => {
+          const end = start + 9;
+          const parSlice = (editing.par || DEFAULT_PAR).slice(start, end);
+          const siSlice  = (editing.si  || DEFAULT_SI ).slice(start, end);
+          const halfPar  = parSlice.reduce((a, b) => a + b, 0);
+          return (
+            <div key={label} style={{ marginBottom: "12px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "6px" }}>
+                <Label>{label}</Label>
+                <span style={{ fontSize: "12px", color: M, fontWeight: 600 }}>Par {halfPar}</span>
+              </div>
+              <table style={{ borderCollapse: "collapse", width: "100%" }}>
+                <thead>
+                  <tr>
+                    <td style={tdLabel} />
+                    {Array.from({ length: 9 }, (_, i) => (
+                      <td key={i} style={{ ...thStyle, textAlign: "center", width: "10%" }}>{start + i + 1}</td>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style={tdLabel}>Par</td>
+                    {parSlice.map((p, i) => (
+                      <td key={i} style={{ padding: "3px 2px" }}>
+                        <input
+                          value={p || ""}
+                          onChange={(e) => setHole(editing.par || DEFAULT_PAR, start + i, e.target.value)}
+                          type="number" min="3" max="6"
+                          style={holeInput}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td style={tdLabel}>SI</td>
+                    {siSlice.map((s, i) => (
+                      <td key={i} style={{ padding: "3px 2px" }}>
+                        <input
+                          value={s || ""}
+                          onChange={(e) => setHole(editing.si || DEFAULT_SI, start + i, e.target.value)}
+                          type="number" min="1" max="18"
+                          style={holeInput}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          );
+        })}
 
         <button onClick={save} style={btnStyle}>Save Round {activeRound}</button>
       </div>
@@ -156,16 +165,17 @@ const inputStyle = {
 };
 
 const holeInput = {
-  width: "34px",
-  padding: "5px 2px",
+  width: "100%",
+  padding: "7px 2px",
   textAlign: "center",
-  borderRadius: "5px",
-  border: "1px solid rgba(201,168,76,0.15)",
+  borderRadius: "6px",
+  border: "1px solid rgba(201,168,76,0.2)",
   background: "rgba(26,61,36,0.2)",
   color: CREAM,
-  fontSize: "12px",
+  fontSize: "14px",
   fontFamily: "'Inter','Helvetica Neue',sans-serif",
   outline: "none",
+  boxSizing: "border-box",
 };
 
 const thStyle = {
