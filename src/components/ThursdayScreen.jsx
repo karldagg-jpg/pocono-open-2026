@@ -317,6 +317,7 @@ export default function ThursdayScreen({ event, saveEvent }) {
                             fontWeight: h === activeHole ? 700 : 400,
                             outline: h === activeHole ? `2px solid ${G}44` : "none",
                           }}>
+                            {strs > 0 && <div style={{ fontSize: "9px", color: "#28b45a", fontWeight: 700, lineHeight: 1 }}>{"•".repeat(strs)}</div>}
                             {g || "—"}
                             {eff === true && net !== null && (
                               <div style={{ fontSize: "9px", color: G }}>{net}</div>
