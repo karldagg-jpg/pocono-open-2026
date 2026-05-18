@@ -557,15 +557,12 @@ export default function ScoringScreen({ event, saveEvent }) {
                         {Array.from({ length: 9 }, (_, h) => {
                           const gross = ps[h] || 0;
                           const isActive = h === activeHole;
-                          const strokes = strokesOnHole(chcp, course.si[h]);
+                          const strokes = strokesOnHole(chcp, course.si?.[h] ?? 18);
                           return (
                             <td key={h}
-                              className={`hole-cell ${isActive ? "active" : ""} ${scoreClass(gross, course.par[h], chcp, course.si[h])}`}
+                              className={`hole-cell ${isActive ? "active" : ""} ${scoreClass(gross, course.par[h], chcp, course.si?.[h] ?? 18)} ${strokes > 0 ? "stroke-hole" : ""}`}
                               onClick={() => setActiveHole(h)}>
-                              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1px" }}>
-                                {strokes > 0 && <span style={{ fontSize: "9px", color: GO, fontWeight: 700, lineHeight: 1 }}>{"•".repeat(strokes)}</span>}
-                                <span>{gross || "·"}</span>
-                              </div>
+                              {gross || "·"}
                             </td>
                           );
                         })}
@@ -576,15 +573,12 @@ export default function ScoringScreen({ event, saveEvent }) {
                           const h = i + 9;
                           const gross = ps[h] || 0;
                           const isActive = h === activeHole;
-                          const strokes = strokesOnHole(chcp, course.si[h]);
+                          const strokes = strokesOnHole(chcp, course.si?.[h] ?? 18);
                           return (
                             <td key={h}
-                              className={`hole-cell ${isActive ? "active" : ""} ${scoreClass(gross, course.par[h], chcp, course.si[h])}`}
+                              className={`hole-cell ${isActive ? "active" : ""} ${scoreClass(gross, course.par[h], chcp, course.si?.[h] ?? 18)} ${strokes > 0 ? "stroke-hole" : ""}`}
                               onClick={() => setActiveHole(h)}>
-                              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1px" }}>
-                                {strokes > 0 && <span style={{ fontSize: "9px", color: GO, fontWeight: 700, lineHeight: 1 }}>{"•".repeat(strokes)}</span>}
-                                <span>{gross || "·"}</span>
-                              </div>
+                              {gross || "·"}
                             </td>
                           );
                         })}
