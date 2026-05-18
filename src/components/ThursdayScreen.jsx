@@ -37,7 +37,7 @@ export default function ThursdayScreen({ event, saveEvent }) {
   const totalPar = course.par.reduce((a, b) => a + b, 0);
 
   // 9-hole rule: half the full course handicap, rounded
-  function hcp9(p) { return Math.round(hcp9(p) / 2); }
+  function hcp9(p) { return Math.round(playerCourseHcp(p, course) / 2); }
 
   function saveThu(patch) {
     const newThu = { ...thu, ...patch };
