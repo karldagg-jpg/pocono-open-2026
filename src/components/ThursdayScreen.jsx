@@ -27,6 +27,7 @@ export default function ThursdayScreen({ event, saveEvent }) {
   const playerIds  = thu.playerIds || [];
   const scores     = thu.scores    || {};
   const takes      = thu.takes     || {};
+  const buyIn      = thu.buyIn     || 0;
 
   const [activeHole, setActiveHole] = useState(0);
   const [playersOpen, setPlayersOpen] = useState(playerIds.length === 0);
@@ -96,6 +97,11 @@ export default function ThursdayScreen({ event, saveEvent }) {
     .filter(x => x.score !== null)
     .sort((a, b) => a.score - b.score);
 
+  const pot = buyIn * playerIds.length;
+  const bestScore = results[0]?.score ?? null;
+  const winners = results.filter(r => r.score === bestScore);
+  const winnerPayout = pot > 0 && winners.length > 0 ? Math.floor(pot / winners.length) : 0;
+
   return (
     <div style={{ maxWidth: "900px", margin: "0 auto", padding: "22px 14px", paddingBottom: "40px" }}>
       <div style={{ fontFamily: FD, fontSize: "28px", fontWeight: 600, color: CREAM, marginBottom: "2px" }}>
@@ -117,7 +123,7 @@ export default function ThursdayScreen({ event, saveEvent }) {
         </button>
         {playersOpen && (
           <div style={{ padding: "0 14px 14px" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "6px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "6px", marginBottom: "12px" }}>
               {players.map(p => {
                 const sel = playerIds.includes(p.id);
                 const chcp = playerCourseHcp(p, course);
@@ -136,6 +142,22 @@ export default function ThursdayScreen({ event, saveEvent }) {
                   </button>
                 );
               })}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", paddingTop: "10px", borderTop: "1px solid #e8ede8" }}>
+              <span style={{ fontSize: "12px", color: M }}>Buy-in</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                <span style={{ fontSize: "14px", color: M }}>$</span>
+                <input
+                  type="number" min="0" step="1" value={buyIn || ""}
+                  onChange={e => saveThu({ buyIn: Number(e.target.value) || 0 })}
+                  placeholder="0"
+                  style={{ width: "70px", padding: "6px 8px", borderRadius: "7px", border: "1px solid #c8d0c8", background: "#fff", color: CREAM, fontSize: "14px", fontWeight: 700, outline: "none", textAlign: "center" }}
+                />
+              </div>
+              <span style={{ fontSize: "12px", color: M }}>per player</span>
+              {pot > 0 && (
+                <span style={{ fontSize: "13px", fontWeight: 700, color: GO, marginLeft: "4px" }}>${pot} pot</span>
+              )}
             </div>
           </div>
         )}
@@ -337,15 +359,33 @@ export default function ThursdayScreen({ event, saveEvent }) {
           {/* Results */}
           {results.length > 0 && (
             <div className="card2">
-              <div className="card-header" style={{ color: GO }}>Sixies Results</div>
-              {results.map(({ p, score, taken }, i) => (
-                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px 14px", borderBottom: `1px solid ${GOLD}12` }}>
-                  <div style={{ fontSize: "13px", fontWeight: 700, color: i === 0 ? GO : M, minWidth: "22px" }}>{i + 1}</div>
-                  <div style={{ flex: 1, fontSize: "14px", color: CREAM }}>{p.name}</div>
-                  <div style={{ fontSize: "11px", color: M }}>{taken}/6 holes</div>
-                  <div style={{ fontSize: "20px", fontWeight: 700, color: GO }}>{score}</div>
-                </div>
-              ))}
+              <div className="card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ color: GO }}>Sixies Results</span>
+                {pot > 0 && (
+                  <span style={{ color: GO, fontSize: "13px" }}>
+                    ${pot} pot{winners.length > 1 ? ` · split ${winners.length} ways` : ""}
+                  </span>
+                )}
+              </div>
+              {results.map(({ p, score, taken }, i) => {
+                const isWinner = score === bestScore;
+                return (
+                  <div key={p.id} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px 14px", borderBottom: `1px solid ${GOLD}12` }}>
+                    <div style={{ fontSize: "13px", fontWeight: 700, color: isWinner ? GO : M, minWidth: "22px" }}>
+                      {i === 0 || score !== results[i - 1].score ? i + 1 : ""}
+                      {isWinner && winners.length > 1 ? "T" : ""}
+                    </div>
+                    <div style={{ flex: 1, fontSize: "14px", color: isWinner ? CREAM : M, fontWeight: isWinner ? 600 : 400 }}>{p.name}</div>
+                    <div style={{ fontSize: "11px", color: M }}>{taken}/6</div>
+                    <div style={{ fontSize: "18px", fontWeight: 700, color: isWinner ? GO : M }}>{score}</div>
+                    {pot > 0 && (
+                      <div style={{ fontSize: "16px", fontWeight: 700, color: isWinner ? GO : M, minWidth: "52px", textAlign: "right" }}>
+                        {isWinner ? `$${winnerPayout}` : "—"}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </>
