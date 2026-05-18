@@ -24,7 +24,8 @@ export default function CourseScreen({ event, saveEvent }) {
 
   function save() {
     const c = draft || course;
-    const newCourses = { ...courses, [activeRound]: c };
+    const saved = { par: [...DEFAULT_PAR], si: [...DEFAULT_SI], ...c };
+    const newCourses = { ...courses, [activeRound]: saved };
     saveEvent({ ...event, courses: newCourses }, { courses: newCourses });
     setDraft(null);
   }
