@@ -563,7 +563,7 @@ export default function ScoringScreen({ event, saveEvent }) {
                             <td key={h}
                               className={`hole-cell ${isActive ? "active" : ""} ${scoreClass(gross, course.par[h], chcp, siVal)}`}
                               onClick={() => setActiveHole(h)}>
-                              {strokes > 0 && <span style={{ position: "absolute", top: 3, right: 3, width: 6, height: 6, borderRadius: "50%", background: "#b8600a", display: "block" }} />}
+                              {strokes > 0 && <div style={{ fontSize: "8px", color: G, fontWeight: 700, lineHeight: 1, marginBottom: "1px" }}>{"•".repeat(strokes)}</div>}
                               {gross || "·"}
                             </td>
                           );
@@ -581,7 +581,7 @@ export default function ScoringScreen({ event, saveEvent }) {
                             <td key={h}
                               className={`hole-cell ${isActive ? "active" : ""} ${scoreClass(gross, course.par[h], chcp, siVal)}`}
                               onClick={() => setActiveHole(h)}>
-                              {strokes > 0 && <span style={{ position: "absolute", top: 3, right: 3, width: 6, height: 6, borderRadius: "50%", background: "#b8600a", display: "block" }} />}
+                              {strokes > 0 && <div style={{ fontSize: "8px", color: G, fontWeight: 700, lineHeight: 1, marginBottom: "1px" }}>{"•".repeat(strokes)}</div>}
                               {gross || "·"}
                             </td>
                           );
