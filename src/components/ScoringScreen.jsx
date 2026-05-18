@@ -557,11 +557,13 @@ export default function ScoringScreen({ event, saveEvent }) {
                         {Array.from({ length: 9 }, (_, h) => {
                           const gross = ps[h] || 0;
                           const isActive = h === activeHole;
-                          const strokes = strokesOnHole(chcp, course.si?.[h] ?? (h + 1));
+                          const siVal = course.si?.[h] ?? (h + 1);
+                          const strokes = strokesOnHole(chcp, siVal);
                           return (
                             <td key={h}
-                              className={`hole-cell ${isActive ? "active" : ""} ${scoreClass(gross, course.par[h], chcp, course.si?.[h] ?? (h + 1))} ${strokes > 0 ? "stroke-hole" : ""}`}
+                              className={`hole-cell ${isActive ? "active" : ""} ${scoreClass(gross, course.par[h], chcp, siVal)}`}
                               onClick={() => setActiveHole(h)}>
+                              {strokes > 0 && <span style={{ position: "absolute", top: 3, right: 3, width: 6, height: 6, borderRadius: "50%", background: "#b8600a", display: "block" }} />}
                               {gross || "·"}
                             </td>
                           );
@@ -573,11 +575,13 @@ export default function ScoringScreen({ event, saveEvent }) {
                           const h = i + 9;
                           const gross = ps[h] || 0;
                           const isActive = h === activeHole;
-                          const strokes = strokesOnHole(chcp, course.si?.[h] ?? (h + 1));
+                          const siVal = course.si?.[h] ?? (h + 1);
+                          const strokes = strokesOnHole(chcp, siVal);
                           return (
                             <td key={h}
-                              className={`hole-cell ${isActive ? "active" : ""} ${scoreClass(gross, course.par[h], chcp, course.si?.[h] ?? (h + 1))} ${strokes > 0 ? "stroke-hole" : ""}`}
+                              className={`hole-cell ${isActive ? "active" : ""} ${scoreClass(gross, course.par[h], chcp, siVal)}`}
                               onClick={() => setActiveHole(h)}>
+                              {strokes > 0 && <span style={{ position: "absolute", top: 3, right: 3, width: 6, height: 6, borderRadius: "50%", background: "#b8600a", display: "block" }} />}
                               {gross || "·"}
                             </td>
                           );
