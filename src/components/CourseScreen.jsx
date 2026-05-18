@@ -24,7 +24,10 @@ export default function CourseScreen({ event, saveEvent }) {
 
   function save() {
     const c = draft || course;
-    const saved = { par: [...DEFAULT_PAR], si: [...DEFAULT_SI], ...c };
+    const tp = (c.par || DEFAULT_PAR).reduce((a, b) => a + b, 0);
+    const saved = { par: [...DEFAULT_PAR], si: [...DEFAULT_SI], slope: 113, rating: tp, ...c };
+    if (!saved.slope) saved.slope = 113;
+    if (!saved.rating) saved.rating = tp;
     const newCourses = { ...courses, [activeRound]: saved };
     saveEvent({ ...event, courses: newCourses }, { courses: newCourses });
     setDraft(null);

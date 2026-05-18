@@ -26,7 +26,10 @@ export function totalPar(course) {
 
 // Course handicap for a player on a specific course
 export function playerCourseHcp(player, course) {
-  return courseHandicap(player.hcpIndex, course.slope, course.rating, totalPar(course));
+  const tp = totalPar(course);
+  const slope = course.slope || 113;
+  const rating = course.rating || tp;
+  return courseHandicap(player.hcpIndex, slope, rating, tp);
 }
 
 // ── Scatts ───────────────────────────────────────────────────────────────────
