@@ -557,10 +557,12 @@ export default function ScoringScreen({ event, saveEvent }) {
                         {Array.from({ length: 9 }, (_, h) => {
                           const gross = ps[h] || 0;
                           const isActive = h === activeHole;
+                          const strokes = strokesOnHole(chcp, course.si[h]);
                           return (
                             <td key={h}
                               className={`hole-cell ${isActive ? "active" : ""} ${scoreClass(gross, course.par[h], chcp, course.si[h])}`}
                               onClick={() => setActiveHole(h)}>
+                              {strokes > 0 && <div style={{ fontSize: "7px", color: G, lineHeight: 1, marginBottom: "1px" }}>{"•".repeat(strokes)}</div>}
                               {gross || "·"}
                             </td>
                           );
@@ -572,10 +574,12 @@ export default function ScoringScreen({ event, saveEvent }) {
                           const h = i + 9;
                           const gross = ps[h] || 0;
                           const isActive = h === activeHole;
+                          const strokes = strokesOnHole(chcp, course.si[h]);
                           return (
                             <td key={h}
                               className={`hole-cell ${isActive ? "active" : ""} ${scoreClass(gross, course.par[h], chcp, course.si[h])}`}
                               onClick={() => setActiveHole(h)}>
+                              {strokes > 0 && <div style={{ fontSize: "7px", color: G, lineHeight: 1, marginBottom: "1px" }}>{"•".repeat(strokes)}</div>}
                               {gross || "·"}
                             </td>
                           );
@@ -596,7 +600,7 @@ export default function ScoringScreen({ event, saveEvent }) {
               </table>
             </div>
             <div style={{ padding: "8px 14px", borderTop: "1px solid rgba(0,0,0,0.06)", fontSize: "11px", color: M }}>
-              Tap a hole to navigate · Net = Gross − Course HCP (USGA)
+              Tap a hole to navigate · Net = Gross − Course HCP (USGA) · • = stroke hole
             </div>
           </div>
         </>
