@@ -234,8 +234,12 @@ export default function ScoringScreen({ event, saveEvent }) {
     return `${ctpFt || 0}'${String(ctpIn || 0).padStart(2, "0")}"`;
   }
 
+  const ctpLog = games?.ctp?.log?.[activeRound]?.[activeHole] || [];
+
   function saveCTP(winnerId, distance) {
     const ctp = games?.ctp || {};
+    const player = players.find(p => p.id === winnerId);
+    const logEntry = { name: player?.name || "?", distance, ts: Date.now() };
     const newCtp = {
       ...ctp,
       results: {
@@ -245,6 +249,13 @@ export default function ScoringScreen({ event, saveEvent }) {
       distances: {
         ...(ctp.distances || {}),
         [activeRound]: { ...(ctp.distances?.[activeRound] || {}), [activeHole]: distance },
+      },
+      log: {
+        ...(ctp.log || {}),
+        [activeRound]: {
+          ...(ctp.log?.[activeRound] || {}),
+          [activeHole]: [...(ctp.log?.[activeRound]?.[activeHole] || []), logEntry],
+        },
       },
     };
     const newGames = { ...games, ctp: newCtp };
@@ -257,6 +268,7 @@ export default function ScoringScreen({ event, saveEvent }) {
     const distances = { ...(ctp.distances || {}), [activeRound]: { ...(ctp.distances?.[activeRound] || {}) } };
     delete results[activeRound][activeHole];
     delete distances[activeRound][activeHole];
+    // log is intentionally preserved — clear only removes the leader designation
     const newGames = { ...games, ctp: { ...ctp, results, distances } };
     saveEvent({ ...event, games: newGames }, { games: newGames });
     setCtpFt(""); setCtpIn("");
@@ -471,6 +483,22 @@ export default function ScoringScreen({ event, saveEvent }) {
                   );
                 })}
               </div>
+
+              {ctpLog.length > 0 && (
+                <div style={{ marginTop: "12px", borderTop: "1px solid #e8ede8", paddingTop: "10px" }}>
+                  <div style={{ fontSize: "10px", color: M, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: "6px" }}>
+                    Measurement Log
+                  </div>
+                  {ctpLog.map((entry, i) => (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", padding: "3px 0", borderBottom: "1px solid #f0f4f0" }}>
+                      <span style={{ color: entry.name === ctpWinner?.name ? G : CREAM, fontWeight: entry.name === ctpWinner?.name ? 700 : 400 }}>
+                        {entry.name === ctpWinner?.name ? "✓ " : ""}{entry.name}
+                      </span>
+                      <span style={{ color: M }}>{entry.distance || "—"}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
