@@ -133,11 +133,14 @@ export default function WinningsScreen({ event }) {
                 {holes.map((holeIdx) => {
                   const winnerId = ctpResults?.[rNum]?.[holeIdx];
                   const winner = players.find((p) => p.id === winnerId);
+                  const dist = games.ctp?.distances?.[rNum]?.[holeIdx];
                   return (
                     <div key={holeIdx} style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", marginBottom: "4px" }}>
                       <span style={{ color: M }}>Hole {holeIdx + 1}</span>
                       <span style={{ color: winner ? CREAM : M }}>
-                        {winner ? `${winner.name} · $${ctpPerWin?.toLocaleString() || "—"}` : "Not recorded"}
+                        {winner
+                          ? `${winner.name}${dist ? ` · ${dist} ft` : ""} · $${ctpPerWin?.toLocaleString() || "—"}`
+                          : "Not recorded"}
                       </span>
                     </div>
                   );
