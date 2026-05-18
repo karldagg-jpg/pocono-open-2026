@@ -166,7 +166,8 @@ export default function ScoringScreen({ event, saveEvent }) {
   const [activeRound, setActiveRound] = useState(1);
   const [activeGroup, setActiveGroup] = useState(0);
   const [activeHole, setActiveHole] = useState(0); // 0-indexed
-  const [ctpDist, setCtpDist] = useState("");
+  const [ctpFt, setCtpFt] = useState("");
+  const [ctpIn, setCtpIn] = useState("");
 
   const round = rounds[activeRound] || {};
   const course = courses[round.courseId || activeRound];
@@ -222,7 +223,16 @@ export default function ScoringScreen({ event, saveEvent }) {
   const ctpWinner = ctpWinnerId != null ? players.find(p => p.id === ctpWinnerId) : null;
   const ctpSavedDist = games?.ctp?.distances?.[activeRound]?.[activeHole] ?? "";
 
-  useEffect(() => { setCtpDist(ctpSavedDist); }, [activeHole, activeRound]);
+  useEffect(() => {
+    const m = ctpSavedDist.match(/^(\d+)'(\d+)"$/);
+    if (m) { setCtpFt(m[1]); setCtpIn(m[2]); }
+    else { setCtpFt(""); setCtpIn(""); }
+  }, [activeHole, activeRound]);
+
+  function ctpDistStr() {
+    if (!ctpFt && !ctpIn) return "";
+    return `${ctpFt || 0}'${String(ctpIn || 0).padStart(2, "0")}"`;
+  }
 
   function saveCTP(winnerId, distance) {
     const ctp = games?.ctp || {};
@@ -249,7 +259,7 @@ export default function ScoringScreen({ event, saveEvent }) {
     delete distances[activeRound][activeHole];
     const newGames = { ...games, ctp: { ...ctp, results, distances } };
     saveEvent({ ...event, games: newGames }, { games: newGames });
-    setCtpDist("");
+    setCtpFt(""); setCtpIn("");
   }
 
   async function setRoundCourseHandler(cId) {
@@ -395,15 +405,16 @@ export default function ScoringScreen({ event, saveEvent }) {
           {/* CTP card — only on configured par-3 CTP holes */}
           {isCTPHole && (
             <div style={{ background: CARD, border: `2px solid ${GOLD}66`, borderRadius: "14px", padding: "14px", marginBottom: "16px" }}>
+              {/* Header */}
               <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
                 <span style={{ fontSize: "18px" }}>🎯</span>
                 <div>
                   <div style={{ fontSize: "14px", fontWeight: 700, color: CREAM }}>Closest to Pin — Hole {activeHole + 1}</div>
                   {ctpWinner
                     ? <div style={{ fontSize: "12px", color: G, fontWeight: 600 }}>
-                        {ctpWinner.name}{ctpSavedDist ? ` · ${ctpSavedDist} ft` : ""}
+                        Leading: {ctpWinner.name}{ctpSavedDist ? ` · ${ctpSavedDist}` : ""}
                       </div>
-                    : <div style={{ fontSize: "12px", color: M }}>Tap a player to record winner</div>
+                    : <div style={{ fontSize: "12px", color: M }}>Enter distance · tap player to set leader</div>
                   }
                 </div>
                 {ctpWinner && (
@@ -413,42 +424,49 @@ export default function ScoringScreen({ event, saveEvent }) {
                 )}
               </div>
 
-              {/* Distance input */}
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
+              {/* Feet + inches inputs */}
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "14px" }}>
                 <div style={{ fontSize: "12px", color: M, whiteSpace: "nowrap" }}>Distance</div>
                 <input
-                  type="number"
-                  min="0"
-                  step="0.5"
-                  value={ctpDist}
-                  onChange={e => setCtpDist(e.target.value)}
-                  placeholder="e.g. 8.5"
-                  style={{ width: "90px", padding: "7px 10px", borderRadius: "8px", border: "1px solid #c8d0c8", background: "#fff", color: CREAM, fontSize: "14px", fontWeight: 600, outline: "none", textAlign: "center" }}
+                  type="number" min="0" max="99" value={ctpFt}
+                  onChange={e => setCtpFt(e.target.value)}
+                  placeholder="0"
+                  style={{ width: "64px", padding: "7px 8px", borderRadius: "8px", border: "1px solid #c8d0c8", background: "#fff", color: CREAM, fontSize: "15px", fontWeight: 700, outline: "none", textAlign: "center" }}
                 />
-                <div style={{ fontSize: "13px", color: M }}>ft</div>
+                <span style={{ fontSize: "13px", color: M }}>ft</span>
+                <input
+                  type="number" min="0" max="11" value={ctpIn}
+                  onChange={e => setCtpIn(e.target.value)}
+                  placeholder="0"
+                  style={{ width: "64px", padding: "7px 8px", borderRadius: "8px", border: "1px solid #c8d0c8", background: "#fff", color: CREAM, fontSize: "15px", fontWeight: 700, outline: "none", textAlign: "center" }}
+                />
+                <span style={{ fontSize: "13px", color: M }}>in</span>
               </div>
 
-              {/* Player grid — entire field */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: "6px" }}>
+              {/* Player grid — entire field, grey out non-leaders once set */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: "6px" }}>
                 {players.map(p => {
-                  const isWinner = p.id === ctpWinnerId;
+                  const isLeader = p.id === ctpWinnerId;
+                  const dimmed = ctpWinnerId != null && !isLeader;
                   return (
                     <button
                       key={p.id}
-                      onClick={() => saveCTP(p.id, ctpDist)}
+                      onClick={() => saveCTP(p.id, ctpDistStr())}
                       style={{
                         padding: "10px 8px",
                         borderRadius: "9px",
-                        border: `2px solid ${isWinner ? G : "#c8d0c8"}`,
-                        background: isWinner ? G + "18" : "#fff",
-                        color: isWinner ? G : CREAM,
+                        border: `2px solid ${isLeader ? G : "#c8d0c8"}`,
+                        background: isLeader ? G + "18" : "#fff",
+                        color: isLeader ? G : dimmed ? "#aab0aa" : CREAM,
                         fontSize: "13px",
-                        fontWeight: isWinner ? 700 : 500,
+                        fontWeight: isLeader ? 700 : 500,
                         cursor: "pointer",
                         textAlign: "center",
                         touchAction: "manipulation",
+                        opacity: dimmed ? 0.5 : 1,
+                        transition: "opacity 0.2s",
                       }}>
-                      {isWinner && "✓ "}{p.name.split(" ")[0]}
+                      {isLeader ? `✓ ${p.name.split(" ")[0]}` : p.name.split(" ")[0]}
                     </button>
                   );
                 })}
