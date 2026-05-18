@@ -97,7 +97,7 @@
   background: #eef0eb; z-index: 1; min-width: 90px;
 }
 .scorecard .hole-cell {
-  min-width: 34px; cursor: pointer; position: relative;
+  min-width: 34px; cursor: pointer; position: relative; vertical-align: top; padding-top: 4px;
 }
 .scorecard .hole-cell:hover { background: #e0ede6; }
 .scorecard .hole-cell.active { background: #c8e8d4; border-radius: 4px; }
