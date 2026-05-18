@@ -557,10 +557,10 @@ export default function ScoringScreen({ event, saveEvent }) {
                         {Array.from({ length: 9 }, (_, h) => {
                           const gross = ps[h] || 0;
                           const isActive = h === activeHole;
-                          const strokes = strokesOnHole(chcp, course.si?.[h] ?? 18);
+                          const strokes = strokesOnHole(chcp, course.si?.[h] ?? (h + 1));
                           return (
                             <td key={h}
-                              className={`hole-cell ${isActive ? "active" : ""} ${scoreClass(gross, course.par[h], chcp, course.si?.[h] ?? 18)} ${strokes > 0 ? "stroke-hole" : ""}`}
+                              className={`hole-cell ${isActive ? "active" : ""} ${scoreClass(gross, course.par[h], chcp, course.si?.[h] ?? (h + 1))} ${strokes > 0 ? "stroke-hole" : ""}`}
                               onClick={() => setActiveHole(h)}>
                               {gross || "·"}
                             </td>
@@ -573,10 +573,10 @@ export default function ScoringScreen({ event, saveEvent }) {
                           const h = i + 9;
                           const gross = ps[h] || 0;
                           const isActive = h === activeHole;
-                          const strokes = strokesOnHole(chcp, course.si?.[h] ?? 18);
+                          const strokes = strokesOnHole(chcp, course.si?.[h] ?? (h + 1));
                           return (
                             <td key={h}
-                              className={`hole-cell ${isActive ? "active" : ""} ${scoreClass(gross, course.par[h], chcp, course.si?.[h] ?? 18)} ${strokes > 0 ? "stroke-hole" : ""}`}
+                              className={`hole-cell ${isActive ? "active" : ""} ${scoreClass(gross, course.par[h], chcp, course.si?.[h] ?? (h + 1))} ${strokes > 0 ? "stroke-hole" : ""}`}
                               onClick={() => setActiveHole(h)}>
                               {gross || "·"}
                             </td>
