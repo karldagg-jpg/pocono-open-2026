@@ -36,14 +36,13 @@ export function getEffectiveHcp(player, course, useIndex = true) {
 
 // ── Scats / Skins ─────────────────────────────────────────────────────────────
 // Priority per hole: gross HIO > gross eagle > gross birdie > net birdie+.
-// Ties at any level carry to the next hole. No net score wins unless there is
-// at least a net birdie (netToPar <= -1) and no gross birdie/eagle/HIO exists.
+// No carryover — ties mean nobody wins that hole.
+// Payout: totalPot / total holes won = value per scat.
 export function calcScatts(roundScores, course, players, buyIn, useIndex = true) {
   const totalPot = players.length * buyIn;
   const holeWinners = {};
   const holeResults = [];
   let totalScatts = 0;
-  let carry = 0;
 
   for (let h = 0; h < 18; h++) {
     const par = course.par[h];
@@ -62,14 +61,13 @@ export function calcScatts(roundScores, course, players, buyIn, useIndex = true)
       if (gross === 1)            tier = 0; // HIO
       else if (grossToPar <= -2)  tier = 1; // eagle or better
       else if (grossToPar === -1) tier = 2; // birdie
-      else                         tier = 3; // net comparison
+      else                        tier = 3; // net comparison
 
       return { id: p.id, name: p.name, gross, net, grossToPar, netToPar, tier };
     }).filter(Boolean);
 
     if (!entries.length) {
-      holeResults.push({ hole: h + 1, winner: null, push: false, carry });
-      carry++;
+      holeResults.push({ hole: h + 1, winner: null, push: false });
       continue;
     }
 
@@ -88,7 +86,6 @@ export function calcScatts(roundScores, course, players, buyIn, useIndex = true)
         push = true; tied = winners;
       }
     } else {
-      // Net: only net birdie or better (netToPar <= -1) qualifies
       const netBirdies = entries.filter(e => e.netToPar <= -1);
       if (!netBirdies.length) {
         push = true;
@@ -104,14 +101,11 @@ export function calcScatts(roundScores, course, players, buyIn, useIndex = true)
     }
 
     if (winner) {
-      const holesWon = carry + 1;
-      holeWinners[winner.id] = (holeWinners[winner.id] || 0) + holesWon;
-      totalScatts += holesWon;
-      holeResults.push({ hole: h + 1, winner, net: winner.net, gross: winner.gross, type, push: false, carry, holesWon });
-      carry = 0;
+      holeWinners[winner.id] = (holeWinners[winner.id] || 0) + 1;
+      totalScatts++;
+      holeResults.push({ hole: h + 1, winner, net: winner.net, gross: winner.gross, type, push: false });
     } else {
-      holeResults.push({ hole: h + 1, winner: null, push: true, tied, carry });
-      carry++;
+      holeResults.push({ hole: h + 1, winner: null, push: true, tied });
     }
   }
 

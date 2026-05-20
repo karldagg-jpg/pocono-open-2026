@@ -148,7 +148,8 @@ export default function GamesScreen({ event, saveEvent }) {
             return (
               <div key={p.id} onClick={() => toggleOptOut(p.id)}
                 style={{ padding: "11px 14px", borderBottom: `1px solid #d0d8d0`, display: "flex", alignItems: "center", gap: "12px", cursor: "pointer" }}>
-                <input type="checkbox" checked={isIn} onChange={() => toggleOptOut(p.id)}
+                <input type="checkbox" checked={isIn}
+                  onClick={e => e.stopPropagation()} onChange={() => toggleOptOut(p.id)}
                   style={{ width: "16px", height: "16px", cursor: "pointer", accentColor: G }} />
                 <div style={{ flex: 1, fontSize: "14px", color: isIn ? CREAM : M }}>{p.name}</div>
                 {!isIn && <div style={{ fontSize: "11px", color: M, background: "#e8e8e4", padding: "2px 8px", borderRadius: "8px" }}>opt out</div>}
@@ -355,7 +356,8 @@ export default function GamesScreen({ event, saveEvent }) {
               return (
                 <div key={p.id} onClick={() => toggleBirdieOptOut(p.id)}
                   style={{ padding: "10px 14px", borderBottom: `1px solid #d0d8d0`, display: "flex", alignItems: "center", gap: "12px", cursor: "pointer" }}>
-                  <input type="checkbox" checked={isIn} onChange={() => toggleBirdieOptOut(p.id)}
+                  <input type="checkbox" checked={isIn}
+                    onClick={e => e.stopPropagation()} onChange={() => toggleBirdieOptOut(p.id)}
                     style={{ width: "16px", height: "16px", cursor: "pointer", accentColor: G }} />
                   <div style={{ flex: 1, fontSize: "14px", color: isIn ? CREAM : M }}>{p.name}</div>
                   {!isIn && <div style={{ fontSize: "11px", color: M, background: "#e8e8e4", padding: "2px 8px", borderRadius: "8px" }}>opt out</div>}
