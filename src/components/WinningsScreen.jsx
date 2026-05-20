@@ -1,5 +1,5 @@
 import { CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
-import { calcWinnings, calcLeaderboard, calcScatts, calcLowNet, calcCTP, calcBirdiePool, gamblingPlayers } from "../lib/golfLogic";
+import { calcWinnings, calcLeaderboard, calcScatts, calcLowNet, calcCTP, calcBirdiePool, gamblingPlayers, birdiePoolPlayers } from "../lib/golfLogic";
 
 export default function WinningsScreen({ event }) {
   const { players = [], courses = {}, rounds = {}, buyIn = 100, games = {} } = event;
@@ -22,20 +22,21 @@ export default function WinningsScreen({ event }) {
 
   const birdiePoolEnabled = games.birdiePool === true;
   const gpPlayers = gamblingPlayers(event);
+  const bpPlayers = birdiePoolPlayers(event);
   const birdieByRound = birdiePoolEnabled ? [1, 2, 3].map(rNum => {
     const round = rounds[rNum];
     if (!round) return null;
     const course = courses[round.courseId];
     if (!course || !Object.keys(round.scores || {}).length) return null;
-    return calcBirdiePool(round.scores || {}, course, gpPlayers);
+    return calcBirdiePool(round.scores || {}, course, bpPlayers);
   }) : [null, null, null];
 
   // Sum birdie pool balances across all rounds
   const birdieNetBalance = {};
-  gpPlayers.forEach(p => { birdieNetBalance[p.id] = 0; });
+  bpPlayers.forEach(p => { birdieNetBalance[p.id] = 0; });
   birdieByRound.forEach(r => {
     if (!r) return;
-    gpPlayers.forEach(p => { birdieNetBalance[p.id] += r.netBalance[p.id] || 0; });
+    bpPlayers.forEach(p => { birdieNetBalance[p.id] += r.netBalance[p.id] || 0; });
   });
 
   const numRounds = [1, 2, 3].filter((r) => rounds[r] && courses[rounds[r]?.courseId] && Object.keys(rounds[r]?.scores || {}).length).length;
@@ -204,7 +205,7 @@ export default function WinningsScreen({ event }) {
           {/* Per-player net balance */}
           <div style={{ padding: "10px 14px" }}>
             <div style={{ fontSize: "11px", color: M, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: "8px" }}>Net Balance</div>
-            {gpPlayers
+            {bpPlayers
               .map(p => ({ p, bal: birdieNetBalance[p.id] || 0 }))
               .sort((a, b) => b.bal - a.bal)
               .map(({ p, bal }) => (
