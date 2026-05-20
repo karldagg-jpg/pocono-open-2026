@@ -10,6 +10,7 @@ export default function GamesScreen({ event, saveEvent }) {
   const [weekendBuyIn, setWeekendBuyIn] = useState(event.weekendBuyIn || 0);
   const [useIndexHcp, setUseIndexHcp]   = useState(savedGames.useIndexHcp !== false);
   const [birdiePool,  setBirdiePool]    = useState(savedGames.birdiePool ?? false);
+  const [birdieOptOuts, setBirdieOptOuts] = useState(() => new Set(event.birdieOptOuts || []));
   const [games, setGames] = useState(() => {
     const defaults = { scatts: { enabled: true, pot: 0 }, lowNet: { enabled: true, pot: 0, payoutPcts: [50, 30, 20] }, ctp: { enabled: true, pot: 0, holes: {}, results: {} } };
     const g = {};
@@ -68,9 +69,17 @@ export default function GamesScreen({ event, saveEvent }) {
     updateGame("ctp", "results", results);
   }
 
+  function toggleBirdieOptOut(pid) {
+    setBirdieOptOuts((prev) => {
+      const next = new Set(prev);
+      if (next.has(pid)) next.delete(pid); else next.add(pid);
+      return next;
+    });
+  }
+
   function save() {
     const newGames = { ...games, useIndexHcp, birdiePool };
-    const patch = { weekendBuyIn, games: newGames, optOuts: [...optOuts] };
+    const patch = { weekendBuyIn, games: newGames, optOuts: [...optOuts], birdieOptOuts: [...birdieOptOuts] };
     saveEvent({ ...event, ...patch }, patch);
   }
 
@@ -313,6 +322,26 @@ export default function GamesScreen({ event, saveEvent }) {
             </div>
           )}
         </div>
+        {birdiePool && players.length > 0 && (
+          <>
+            <div style={{ padding: "8px 14px 4px", borderTop: `1px solid rgba(201,168,76,0.15)`, fontSize: "11px", color: M, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600 }}>
+              Players In · {players.filter(p => !birdieOptOuts.has(p.id)).length} of {players.length}
+            </div>
+            {players.map((p) => {
+              const isIn = !birdieOptOuts.has(p.id);
+              return (
+                <div key={p.id} onClick={() => toggleBirdieOptOut(p.id)}
+                  style={{ padding: "10px 14px", borderBottom: `1px solid #d0d8d0`, display: "flex", alignItems: "center", gap: "12px", cursor: "pointer" }}>
+                  <input type="checkbox" checked={isIn} onChange={() => toggleBirdieOptOut(p.id)}
+                    style={{ width: "16px", height: "16px", cursor: "pointer", accentColor: G }} />
+                  <div style={{ flex: 1, fontSize: "14px", color: isIn ? CREAM : M }}>{p.name}</div>
+                  {!isIn && <div style={{ fontSize: "11px", color: M, background: "#e8e8e4", padding: "2px 8px", borderRadius: "8px" }}>opt out</div>}
+                </div>
+              );
+            })}
+            <div style={{ height: "4px" }} />
+          </>
+        )}
       </div>
 
       <button onClick={save} className="btn" style={{ width: "100%", padding: "13px", fontSize: "15px" }}>

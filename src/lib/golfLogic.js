@@ -165,6 +165,12 @@ export function gamblingPlayers(event) {
   return players.filter(p => !out.has(p.id));
 }
 
+export function birdiePoolPlayers(event) {
+  const { players = [], birdieOptOuts = [] } = event;
+  const out = new Set(birdieOptOuts);
+  return players.filter(p => !out.has(p.id));
+}
+
 // ── Net leaderboard ──────────────────────────────────────────────────────────
 export function calcLeaderboard(event) {
   const { players = [], courses = {}, rounds = {}, games = {} } = event;
