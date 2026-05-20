@@ -27,7 +27,7 @@ export default function ScattsScreen({ event }) {
         Scats
       </div>
       <div style={{ color: M, fontSize: "14px", marginBottom: "18px" }}>
-        Gross birdie &gt; eagle &gt; HIO · ties carry · net birdie+ if no gross · ${buyIn}/round
+        Gross birdie &gt; eagle &gt; HIO · ties = no winner · net birdie+ if no gross · ${buyIn}/round
       </div>
 
       {/* Round tabs */}
@@ -92,16 +92,12 @@ export default function ScattsScreen({ event }) {
                 }}>
                   <div style={{ width: "28px", textAlign: "center", fontSize: "12px", fontWeight: 700, color: GOLD }}>
                     {hr.hole}
-                    {hr.carry > 0 && !hr.winner && <div style={{ fontSize: "9px", color: R, fontWeight: 600 }}>+{hr.carry}</div>}
                   </div>
                   <div style={{ flex: 1, fontSize: "13px", color: hr.winner ? CREAM : M }}>
-                    {hr.winner ? hr.winner.name : hr.push ? "Carry" : "—"}
+                    {hr.winner ? hr.winner.name : hr.push ? "Tied" : "—"}
                   </div>
                   {hr.winner && typeLabel && (
                     <div style={{ fontSize: "11px", color: typeColor, fontWeight: 700 }}>{typeLabel}</div>
-                  )}
-                  {hr.winner && hr.holesWon > 1 && (
-                    <div style={{ fontSize: "11px", color: GO }}>×{hr.holesWon}</div>
                   )}
                   {hr.winner && hr.type === 'net' && <div style={{ fontSize: "12px", color: G }}>Net {hr.net}</div>}
                   {hr.push && hr.tied && (
@@ -111,7 +107,7 @@ export default function ScattsScreen({ event }) {
               );
             })}
             <div style={{ padding: "8px 14px", borderTop: `1px solid rgba(255,255,255,0.06)`, fontSize: "11px", color: M }}>
-              Ties carry to next hole · ×N = carried skin value
+              Ties = nobody wins · Pot ÷ holes won = value per scat
             </div>
           </div>
         </>
