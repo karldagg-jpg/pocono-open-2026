@@ -20,10 +20,13 @@ export default function WinningsScreen({ event }) {
   const { payouts: lnPayouts, positions: lnPositions, pot: lnPot, pcts: lnPcts, prizes: lnPrizes } = calcLowNet(event);
   const { payouts: ctpPayouts, totalWins: ctpWins, perWin: ctpPerWin, pot: ctpPot, ctpResults } = calcCTP(event);
 
-  const birdiePoolEnabled = games.birdiePool === true;
+  const bpConfig = games.birdiePool;
+  const birdiePoolEnabled = bpConfig === true || (bpConfig && typeof bpConfig === "object" && bpConfig.enabled !== false);
   const gpPlayers = gamblingPlayers(event);
   const bpPlayers = birdiePoolPlayers(event);
   const birdieByRound = birdiePoolEnabled ? [1, 2, 3].map(rNum => {
+    const roundEnabled = bpConfig === true || bpConfig?.[rNum] !== false;
+    if (!roundEnabled) return null;
     const round = rounds[rNum];
     if (!round) return null;
     const course = courses[round.courseId];
