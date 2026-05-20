@@ -9,7 +9,15 @@ export default function GamesScreen({ event, saveEvent }) {
 
   const [weekendBuyIn, setWeekendBuyIn] = useState(event.weekendBuyIn || 0);
   const [useIndexHcp, setUseIndexHcp]   = useState(savedGames.useIndexHcp !== false);
-  const [birdiePool,  setBirdiePool]    = useState(savedGames.birdiePool ?? false);
+  const [birdiePoolEnabled, setBirdiePoolEnabled] = useState(() => {
+    const saved = savedGames.birdiePool;
+    return saved === true || (saved && typeof saved === "object" && saved.enabled !== false);
+  });
+  const [birdiePoolRounds, setBirdiePoolRounds] = useState(() => {
+    const saved = savedGames.birdiePool;
+    if (!saved || saved === true) return { 1: true, 2: true, 3: true };
+    return { 1: saved[1] !== false, 2: saved[2] !== false, 3: saved[3] !== false };
+  });
   const [birdieOptOuts, setBirdieOptOuts] = useState(() => new Set(event.birdieOptOuts || []));
   const [games, setGames] = useState(() => {
     const defaults = { scatts: { enabled: true, pot: 0 }, lowNet: { enabled: true, pot: 0, payoutPcts: [50, 30, 20] }, ctp: { enabled: true, pot: 0, holes: {}, results: {} } };
@@ -78,6 +86,9 @@ export default function GamesScreen({ event, saveEvent }) {
   }
 
   function save() {
+    const birdiePool = birdiePoolEnabled
+      ? { enabled: true, 1: birdiePoolRounds[1], 2: birdiePoolRounds[2], 3: birdiePoolRounds[3] }
+      : false;
     const newGames = { ...games, useIndexHcp, birdiePool };
     const patch = { weekendBuyIn, games: newGames, optOuts: [...optOuts], birdieOptOuts: [...birdieOptOuts] };
     saveEvent({ ...event, ...patch }, patch);
@@ -303,10 +314,10 @@ export default function GamesScreen({ event, saveEvent }) {
         <div className="card-header">Birdie / Eagle / HIO Pool</div>
         <div style={{ padding: "14px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "10px" }}>
-            <input type="checkbox" checked={birdiePool} onChange={e => setBirdiePool(e.target.checked)}
+            <input type="checkbox" checked={birdiePoolEnabled} onChange={e => setBirdiePoolEnabled(e.target.checked)}
               style={{ width: "16px", height: "16px", cursor: "pointer", accentColor: G }} />
             <div>
-              <div style={{ fontSize: "14px", color: birdiePool ? CREAM : M, fontWeight: birdiePool ? 600 : 400 }}>
+              <div style={{ fontSize: "14px", color: birdiePoolEnabled ? CREAM : M, fontWeight: birdiePoolEnabled ? 600 : 400 }}>
                 Enable Birdie Pool
               </div>
               <div style={{ fontSize: "12px", color: M }}>
@@ -314,15 +325,27 @@ export default function GamesScreen({ event, saveEvent }) {
               </div>
             </div>
           </div>
-          {birdiePool && (
-            <div style={{ paddingLeft: "28px", fontSize: "12px", color: M, lineHeight: 1.6 }}>
-              <div>Birdie — $1 per other player</div>
-              <div>Eagle — $5 per other player</div>
-              <div>Hole in One — $10 per other player (supersedes eagle)</div>
-            </div>
+          {birdiePoolEnabled && (
+            <>
+              <div style={{ paddingLeft: "28px", fontSize: "12px", color: M, lineHeight: 1.6, marginBottom: "10px" }}>
+                <div>Birdie — $1 per other player</div>
+                <div>Eagle — $5 per other player</div>
+                <div>Hole in One — $10 per other player (supersedes eagle)</div>
+              </div>
+              <div style={{ paddingLeft: "28px", display: "flex", gap: "16px" }}>
+                {[1, 2, 3].map(r => (
+                  <label key={r} style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontSize: "13px", color: birdiePoolRounds[r] ? CREAM : M }}>
+                    <input type="checkbox" checked={birdiePoolRounds[r] !== false}
+                      onChange={e => setBirdiePoolRounds(prev => ({ ...prev, [r]: e.target.checked }))}
+                      style={{ width: "15px", height: "15px", cursor: "pointer", accentColor: G }} />
+                    Round {r}
+                  </label>
+                ))}
+              </div>
+            </>
           )}
         </div>
-        {birdiePool && players.length > 0 && (
+        {birdiePoolEnabled && players.length > 0 && (
           <>
             <div style={{ padding: "8px 14px 4px", borderTop: `1px solid rgba(201,168,76,0.15)`, fontSize: "11px", color: M, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600 }}>
               Players In · {players.filter(p => !birdieOptOuts.has(p.id)).length} of {players.length}

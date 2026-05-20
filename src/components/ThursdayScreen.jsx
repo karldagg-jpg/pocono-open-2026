@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CARD, CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
-import { strokesOnHole, playerCourseHcp } from "../lib/golfLogic";
+import { strokesOnHole } from "../lib/golfLogic";
 
 // Sixies: pick 6 of 9 holes, 3 passes max, lowest net wins
 // Returns true=forcedTake, false=forcedPass, null=freeChoice
@@ -36,8 +36,8 @@ export default function ThursdayScreen({ event, saveEvent }) {
   const selected = players.filter(p => playerIds.includes(p.id));
   const totalPar = course.par.reduce((a, b) => a + b, 0);
 
-  // 9-hole rule: half the full course handicap, rounded
-  function hcp9(p) { return Math.round(playerCourseHcp(p, course) / 2); }
+  // Half the handicap index, standard rounding (0.5 rounds up)
+  function hcp9(p) { return Math.round(p.hcpIndex / 2); }
 
   function saveThu(patch) {
     const newThu = { ...thu, ...patch };
@@ -140,7 +140,7 @@ export default function ThursdayScreen({ event, saveEvent }) {
                   }}>
                     {sel ? "✓ " : ""}{p.name}
                     <span style={{ fontSize: "11px", color: sel ? G : M, display: "block", fontWeight: 400 }}>
-                      {p.hcpIndex.toFixed(1)} idx · {chcp} chcp
+                      {p.hcpIndex.toFixed(1)} idx → {chcp} for 9
                     </span>
                   </button>
                 );
@@ -238,7 +238,7 @@ export default function ThursdayScreen({ event, saveEvent }) {
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
                     <div>
                       <div style={{ fontSize: "13px", fontWeight: 700, color: CREAM }}>{p.name.split(" ")[0]}</div>
-                      <div style={{ fontSize: "10px", color: M }}>chcp {chcp}{strokes > 0 ? ` · +${strokes}` : ""}</div>
+                      <div style={{ fontSize: "10px", color: M }}>Idx {p.hcpIndex.toFixed(1)} → {chcp} for 9{strokes > 0 ? ` · +${strokes}` : ""}</div>
                     </div>
                     <div style={{ fontSize: "10px", color: M, textAlign: "right" }}>
                       {taken}/6 taken<br />{passes}/3 pass
