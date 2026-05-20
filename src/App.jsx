@@ -125,11 +125,11 @@ export default function App() {
   const isSetupPhase = !hasPlayers || !hasCourses;
 
   const PRIMARY = isSetupPhase
-    ? ["setup", "courses", "games", "pairings"]
-    : ["leaderboard", "scoring", "scatts", "replay"];
+    ? ["setup", "courses", "games", "pairings", "thursday", "winnings"]
+    : ["leaderboard", "scoring", "scatts", "replay", "winnings", "thursday"];
   const MORE = isSetupPhase
-    ? ["leaderboard", "scoring", "scatts", "winnings", "replay", "thursday"]
-    : ["winnings", "games", "pairings", "courses", "setup", "thursday"];
+    ? ["leaderboard", "scoring", "scatts", "replay"]
+    : ["games", "pairings", "courses", "setup"];
 
   function syncAgo() {
     if (!lastSynced) return null;
