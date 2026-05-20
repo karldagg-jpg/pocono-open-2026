@@ -142,7 +142,7 @@ export default function LeaderboardScreen({ event }) {
           </table>
         </div>
         <div style={{ padding: "10px 14px", borderTop: `1px solid rgba(255,255,255,0.06)`, fontSize: "12px", color: M }}>
-          Net = Gross − Course Handicap (USGA) · Red = under par · Arrows show movement from previous round
+          Net = Gross − Index (rounded) · Red = under par · Arrows show movement from previous round
         </div>
       </div>
     </div>

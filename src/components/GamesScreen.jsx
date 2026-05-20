@@ -8,6 +8,8 @@ export default function GamesScreen({ event, saveEvent }) {
   const { players = [], courses = {}, games: savedGames = {} } = event;
 
   const [weekendBuyIn, setWeekendBuyIn] = useState(event.weekendBuyIn || 0);
+  const [useIndexHcp, setUseIndexHcp]   = useState(savedGames.useIndexHcp !== false);
+  const [birdiePool,  setBirdiePool]    = useState(savedGames.birdiePool ?? false);
   const [games, setGames] = useState(() => {
     const defaults = { scatts: { enabled: true, pot: 0 }, lowNet: { enabled: true, pot: 0, payoutPcts: [50, 30, 20] }, ctp: { enabled: true, pot: 0, holes: {}, results: {} } };
     const g = {};
@@ -67,7 +69,8 @@ export default function GamesScreen({ event, saveEvent }) {
   }
 
   function save() {
-    const patch = { weekendBuyIn, games, optOuts: [...optOuts] };
+    const newGames = { ...games, useIndexHcp, birdiePool };
+    const patch = { weekendBuyIn, games: newGames, optOuts: [...optOuts] };
     saveEvent({ ...event, ...patch }, patch);
   }
 
@@ -263,6 +266,54 @@ export default function GamesScreen({ event, saveEvent }) {
           })}
         </div>
       )}
+
+      {/* Handicap method */}
+      <div className="card2" style={{ marginBottom: "16px" }}>
+        <div className="card-header">Handicap Method</div>
+        <div style={{ padding: "14px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "10px" }}>
+            <input type="checkbox" checked={useIndexHcp} onChange={e => setUseIndexHcp(e.target.checked)}
+              style={{ width: "16px", height: "16px", cursor: "pointer", accentColor: G }} />
+            <div>
+              <div style={{ fontSize: "14px", color: useIndexHcp ? CREAM : M, fontWeight: useIndexHcp ? 600 : 400 }}>
+                Play off Index (recommended)
+              </div>
+              <div style={{ fontSize: "12px", color: M }}>
+                Use rounded handicap index directly — no slope/rating conversion
+              </div>
+            </div>
+          </div>
+          <div style={{ fontSize: "12px", color: M, paddingLeft: "28px" }}>
+            {useIndexHcp ? "OFF: use USGA course handicap (slope/rating formula)" : "ON: switch to index-direct for all scoring"}
+          </div>
+        </div>
+      </div>
+
+      {/* Birdie Pool */}
+      <div className="card2" style={{ marginBottom: "16px" }}>
+        <div className="card-header">Birdie / Eagle / HIO Pool</div>
+        <div style={{ padding: "14px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "10px" }}>
+            <input type="checkbox" checked={birdiePool} onChange={e => setBirdiePool(e.target.checked)}
+              style={{ width: "16px", height: "16px", cursor: "pointer", accentColor: G }} />
+            <div>
+              <div style={{ fontSize: "14px", color: birdiePool ? CREAM : M, fontWeight: birdiePool ? 600 : 400 }}>
+                Enable Birdie Pool
+              </div>
+              <div style={{ fontSize: "12px", color: M }}>
+                Player-to-player · gross scores only
+              </div>
+            </div>
+          </div>
+          {birdiePool && (
+            <div style={{ paddingLeft: "28px", fontSize: "12px", color: M, lineHeight: 1.6 }}>
+              <div>Birdie — $1 per other player</div>
+              <div>Eagle — $5 per other player</div>
+              <div>Hole in One — $10 per other player (supersedes eagle)</div>
+            </div>
+          )}
+        </div>
+      </div>
 
       <button onClick={save} className="btn" style={{ width: "100%", padding: "13px", fontSize: "15px" }}>
         Save
