@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { CARD, CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
-import { playerCourseHcp, strokesOnHole, netHole, totalPar } from "../lib/golfLogic";
+import { getEffectiveHcp, strokesOnHole, netHole, totalPar } from "../lib/golfLogic";
 import { savePlayerScore, saveRoundCourse } from "../firebase/client";
 
 const LOST_BALL_SECS = 180;
@@ -299,9 +299,11 @@ export default function ScoringScreen({ event, saveEvent }) {
     return "score-double";
   }
 
+  const useIndex = games?.useIndexHcp !== false;
+
   function playerTotals(pid) {
     const ps = scores[pid] || [];
-    const chcp = playerCourseHcp(players.find((p) => p.id === pid), course);
+    const chcp = getEffectiveHcp(players.find((p) => p.id === pid), course, useIndex);
     let grossF = 0, netF = 0, grossB = 0, netB = 0;
     let countF = 0, countB = 0;
     for (let h = 0; h < 18; h++) {
@@ -515,7 +517,7 @@ export default function ScoringScreen({ event, saveEvent }) {
             marginBottom: "16px",
           }}>
             {groupPlayers.map((p) => {
-              const chcp = playerCourseHcp(p, course);
+              const chcp = getEffectiveHcp(p, course, useIndex);
               const strokes = strokesOnHole(chcp, si);
               const gross = (scores[p.id] || [])[activeHole] || 0;
               const net = gross ? netHole(gross, chcp, si) : null;
@@ -534,7 +536,7 @@ export default function ScoringScreen({ event, saveEvent }) {
                     <div>
                       <div style={{ fontSize: "14px", fontWeight: 700, color: CREAM }}>{p.name}</div>
                       <div style={{ fontSize: "11px", color: M, marginTop: "1px" }}>
-                        HCP {chcp}{strokes > 0 ? ` · +${strokes} stroke${strokes > 1 ? "s" : ""}` : ""}
+                        {useIndex ? `Idx ${p.hcpIndex.toFixed(1)} → ${chcp}` : `HCP ${chcp}`}{strokes > 0 ? ` · +${strokes}` : ""}
                       </div>
                     </div>
                     {/* Net score badge */}
@@ -550,6 +552,17 @@ export default function ScoringScreen({ event, saveEvent }) {
                       )}
                     </div>
                   </div>
+
+                  {/* Gross achievement badge */}
+                  {gross > 0 && (
+                    gross === 1 ? (
+                      <div style={{ textAlign: "center", fontSize: "12px", fontWeight: 700, color: GOLD, background: GOLD + "18", borderRadius: "6px", padding: "3px 0" }}>HOLE IN ONE</div>
+                    ) : gross <= par - 2 ? (
+                      <div style={{ textAlign: "center", fontSize: "12px", fontWeight: 700, color: GO, background: GO + "18", borderRadius: "6px", padding: "3px 0" }}>EAGLE</div>
+                    ) : gross === par - 1 ? (
+                      <div style={{ textAlign: "center", fontSize: "12px", fontWeight: 700, color: G, background: G + "18", borderRadius: "6px", padding: "3px 0" }}>BIRDIE</div>
+                    ) : null
+                  )}
 
                   {/* Gross stepper */}
                   <div>
@@ -693,7 +706,7 @@ export default function ScoringScreen({ event, saveEvent }) {
                   </tr>
 
                   {groupPlayers.map((p) => {
-                    const chcp = playerCourseHcp(p, course);
+                    const chcp = getEffectiveHcp(p, course, useIndex);
                     const ps = scores[p.id] || [];
                     const totals = playerTotals(p.id);
                     const netVsPar = totals.countTotal > 0
@@ -718,6 +731,9 @@ export default function ScoringScreen({ event, saveEvent }) {
                               onClick={() => setActiveHole(h)}>
                               {strokes > 0 && <div style={{ fontSize: "11px", color: "#28b45a", fontWeight: 700, lineHeight: 1, marginBottom: "1px" }}>{"•".repeat(strokes)}</div>}
                               {gross || "—"}
+                              {gross === 1 && <div style={{ fontSize: "8px", color: GOLD, fontWeight: 700, lineHeight: 1 }}>HIO</div>}
+                              {gross > 1 && course.par[h] && gross <= course.par[h] - 2 && <div style={{ fontSize: "8px", color: GO, fontWeight: 700, lineHeight: 1 }}>E</div>}
+                              {gross > 0 && course.par[h] && gross === course.par[h] - 1 && <div style={{ fontSize: "8px", color: G, fontWeight: 700, lineHeight: 1 }}>B</div>}
                             </td>
                           );
                         })}
@@ -736,6 +752,9 @@ export default function ScoringScreen({ event, saveEvent }) {
                               onClick={() => setActiveHole(h)}>
                               {strokes > 0 && <div style={{ fontSize: "11px", color: "#28b45a", fontWeight: 700, lineHeight: 1, marginBottom: "1px" }}>{"•".repeat(strokes)}</div>}
                               {gross || "—"}
+                              {gross === 1 && <div style={{ fontSize: "8px", color: GOLD, fontWeight: 700, lineHeight: 1 }}>HIO</div>}
+                              {gross > 1 && course.par[h] && gross <= course.par[h] - 2 && <div style={{ fontSize: "8px", color: GO, fontWeight: 700, lineHeight: 1 }}>E</div>}
+                              {gross > 0 && course.par[h] && gross === course.par[h] - 1 && <div style={{ fontSize: "8px", color: G, fontWeight: 700, lineHeight: 1 }}>B</div>}
                             </td>
                           );
                         })}
@@ -755,7 +774,7 @@ export default function ScoringScreen({ event, saveEvent }) {
               </table>
             </div>
             <div style={{ padding: "8px 14px", borderTop: "1px solid rgba(0,0,0,0.06)", fontSize: "11px", color: M }}>
-              Tap a hole to navigate · Net = Gross − Course HCP (USGA) · • = stroke hole
+              Tap a hole to navigate · Net = Gross − Index · • = stroke hole · B/E/HIO = gross achievement
             </div>
           </div>
         </>

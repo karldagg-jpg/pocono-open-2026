@@ -1,5 +1,5 @@
 import { CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
-import { calcWinnings, calcLeaderboard, calcScatts, calcLowNet, calcCTP } from "../lib/golfLogic";
+import { calcWinnings, calcLeaderboard, calcScatts, calcLowNet, calcCTP, calcBirdiePool, gamblingPlayers } from "../lib/golfLogic";
 
 export default function WinningsScreen({ event }) {
   const { players = [], courses = {}, rounds = {}, buyIn = 100, games = {} } = event;
@@ -19,6 +19,24 @@ export default function WinningsScreen({ event }) {
 
   const { payouts: lnPayouts, positions: lnPositions, pot: lnPot, pcts: lnPcts, prizes: lnPrizes } = calcLowNet(event);
   const { payouts: ctpPayouts, totalWins: ctpWins, perWin: ctpPerWin, pot: ctpPot, ctpResults } = calcCTP(event);
+
+  const birdiePoolEnabled = games.birdiePool === true;
+  const gpPlayers = gamblingPlayers(event);
+  const birdieByRound = birdiePoolEnabled ? [1, 2, 3].map(rNum => {
+    const round = rounds[rNum];
+    if (!round) return null;
+    const course = courses[round.courseId];
+    if (!course || !Object.keys(round.scores || {}).length) return null;
+    return calcBirdiePool(round.scores || {}, course, gpPlayers);
+  }) : [null, null, null];
+
+  // Sum birdie pool balances across all rounds
+  const birdieNetBalance = {};
+  gpPlayers.forEach(p => { birdieNetBalance[p.id] = 0; });
+  birdieByRound.forEach(r => {
+    if (!r) return;
+    gpPlayers.forEach(p => { birdieNetBalance[p.id] += r.netBalance[p.id] || 0; });
+  });
 
   const numRounds = [1, 2, 3].filter((r) => rounds[r] && courses[rounds[r]?.courseId] && Object.keys(rounds[r]?.scores || {}).length).length;
   const totalCollected = players.length * buyIn * numRounds;
@@ -148,6 +166,56 @@ export default function WinningsScreen({ event }) {
               </div>
             );
           })}
+        </Section>
+      )}
+
+      {/* ── Birdie Pool ── */}
+      {birdiePoolEnabled && (
+        <Section title="Birdie / Eagle / HIO Pool" color={G}>
+          {birdieByRound.map((r, ri) => {
+            if (!r) return (
+              <div key={ri} style={{ padding: "10px 14px", borderBottom: `1px solid rgba(201,168,76,0.08)`, display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: M, fontSize: "13px" }}>Round {ri + 1}</span>
+                <span style={{ color: M, fontSize: "12px" }}>Not scored</span>
+              </div>
+            );
+            return (
+              <div key={ri} style={{ padding: "10px 14px", borderBottom: `1px solid rgba(201,168,76,0.08)` }}>
+                <div style={{ fontSize: "13px", fontWeight: 600, color: CREAM, marginBottom: "6px" }}>Round {ri + 1}</div>
+                {r.holesDetail.length === 0 ? (
+                  <div style={{ fontSize: "12px", color: M }}>No birdies or better yet</div>
+                ) : r.holesDetail.map(hd => (
+                  <div key={hd.hole} style={{ marginBottom: "4px" }}>
+                    {hd.events.map((ev, ei) => {
+                      const typeColor = ev.type === 'hio' ? GOLD : ev.type === 'eagle' ? GO : G;
+                      const typeLabel = ev.type === 'hio' ? 'HIO' : ev.type === 'eagle' ? 'Eagle' : 'Birdie';
+                      return (
+                        <div key={ei} style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", padding: "2px 0" }}>
+                          <span style={{ color: M }}>H{hd.hole} · <span style={{ color: typeColor, fontWeight: 700 }}>{typeLabel}</span> · {ev.scorerName.split(" ")[0]}</span>
+                          <span style={{ color: GO, fontWeight: 600 }}>+${ev.payout}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+          {/* Per-player net balance */}
+          <div style={{ padding: "10px 14px" }}>
+            <div style={{ fontSize: "11px", color: M, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: "8px" }}>Net Balance</div>
+            {gpPlayers
+              .map(p => ({ p, bal: birdieNetBalance[p.id] || 0 }))
+              .sort((a, b) => b.bal - a.bal)
+              .map(({ p, bal }) => (
+                <div key={p.id} style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", padding: "3px 0" }}>
+                  <span style={{ color: bal > 0 ? CREAM : M }}>{p.name}</span>
+                  <span style={{ fontWeight: 700, color: bal > 0 ? GO : bal < 0 ? R : M }}>
+                    {bal > 0 ? `+$${bal}` : bal < 0 ? `-$${Math.abs(bal)}` : "—"}
+                  </span>
+                </div>
+              ))}
+          </div>
         </Section>
       )}
 

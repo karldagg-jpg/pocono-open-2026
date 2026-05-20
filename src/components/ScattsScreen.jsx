@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CARD, CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
-import { calcScatts, playerCourseHcp } from "../lib/golfLogic";
+import { calcScatts } from "../lib/golfLogic";
 
 export default function ScattsScreen({ event }) {
   const { players = [], courses = {}, rounds = {}, buyIn = 100, weekendBuyIn, games = {} } = event;
@@ -16,8 +16,9 @@ export default function ScattsScreen({ event }) {
     : buyIn;
   const totalPot = players.length * scattsBuyIn;
 
+  const useIndex = games?.useIndexHcp !== false;
   const result = course && Object.keys(round.scores || {}).length
-    ? calcScatts(round.scores || {}, course, players, scattsBuyIn)
+    ? calcScatts(round.scores || {}, course, players, scattsBuyIn, useIndex)
     : null;
 
   return (
@@ -26,7 +27,7 @@ export default function ScattsScreen({ event }) {
         Scats
       </div>
       <div style={{ color: M, fontSize: "14px", marginBottom: "18px" }}>
-        Net skins · ${buyIn}/player/round · Pot ${totalPot.toLocaleString()}
+        Gross birdie &gt; eagle &gt; HIO · ties carry · net birdie+ if no gross · ${buyIn}/round
       </div>
 
       {/* Round tabs */}
@@ -80,29 +81,37 @@ export default function ScattsScreen({ event }) {
           {/* Hole-by-hole results */}
           <div className="card2">
             <div className="card-header">Hole Results</div>
-            {result.holeResults.map((hr) => (
-              <div key={hr.hole} style={{
-                display: "flex", alignItems: "center", gap: "10px", padding: "8px 14px",
-                borderBottom: `1px solid rgba(201,168,76,0.08)`,
-                background: hr.winner ? G + "0a" : "transparent",
-              }}>
-                <div style={{ width: "28px", textAlign: "center", fontSize: "12px", fontWeight: 700, color: GOLD }}>
-                  {hr.hole}
-                </div>
-                <div style={{ flex: 1, fontSize: "13px", color: hr.winner ? CREAM : M }}>
-                  {hr.winner ? hr.winner.name : hr.push ? "Push" : "—"}
-                </div>
-                {hr.winner && <div style={{ fontSize: "13px", color: GO, fontWeight: 700 }}>★</div>}
-                {hr.winner && <div style={{ fontSize: "12px", color: G }}>Net {hr.net}</div>}
-                {hr.push && (
-                  <div style={{ fontSize: "11px", color: M }}>
-                    {hr.tied?.map((t) => t.name).join(", ")}
+            {result.holeResults.map((hr) => {
+              const typeLabel = hr.type === 'hio' ? 'HIO' : hr.type === 'eagle' ? 'Eagle' : hr.type === 'birdie' ? 'Birdie' : hr.type === 'net' ? 'Net' : null;
+              const typeColor = hr.type === 'hio' ? GOLD : hr.type === 'eagle' ? GO : hr.type === 'birdie' ? G : M;
+              return (
+                <div key={hr.hole} style={{
+                  display: "flex", alignItems: "center", gap: "10px", padding: "8px 14px",
+                  borderBottom: `1px solid rgba(201,168,76,0.08)`,
+                  background: hr.winner ? G + "0a" : "transparent",
+                }}>
+                  <div style={{ width: "28px", textAlign: "center", fontSize: "12px", fontWeight: 700, color: GOLD }}>
+                    {hr.hole}
+                    {hr.carry > 0 && !hr.winner && <div style={{ fontSize: "9px", color: R, fontWeight: 600 }}>+{hr.carry}</div>}
                   </div>
-                )}
-              </div>
-            ))}
+                  <div style={{ flex: 1, fontSize: "13px", color: hr.winner ? CREAM : M }}>
+                    {hr.winner ? hr.winner.name : hr.push ? "Carry" : "—"}
+                  </div>
+                  {hr.winner && typeLabel && (
+                    <div style={{ fontSize: "11px", color: typeColor, fontWeight: 700 }}>{typeLabel}</div>
+                  )}
+                  {hr.winner && hr.holesWon > 1 && (
+                    <div style={{ fontSize: "11px", color: GO }}>×{hr.holesWon}</div>
+                  )}
+                  {hr.winner && hr.type === 'net' && <div style={{ fontSize: "12px", color: G }}>Net {hr.net}</div>}
+                  {hr.push && hr.tied && (
+                    <div style={{ fontSize: "11px", color: M }}>{hr.tied.map(t => t.name.split(" ")[0]).join(" / ")}</div>
+                  )}
+                </div>
+              );
+            })}
             <div style={{ padding: "8px 14px", borderTop: `1px solid rgba(255,255,255,0.06)`, fontSize: "11px", color: M }}>
-              Tied holes are a push — nobody wins
+              Ties carry to next hole · ×N = carried skin value
             </div>
           </div>
         </>
