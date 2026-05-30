@@ -2,7 +2,7 @@ import { CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
 import { calcWinnings, calcLeaderboard, calcScatts, calcLowNet, calcCTP, calcBirdiePool, calcHIOBonus, gamblingPlayers, birdiePoolPlayers } from "../lib/golfLogic";
 
 export default function WinningsScreen({ event }) {
-  const { players = [], courses = {}, rounds = {}, buyIn = 100, games = {} } = event;
+  const { players = [], courses = {}, rounds = {}, buyIn = 100, weekendBuyIn, games = {} } = event;
   const winnings = calcWinnings(event);
 
   const potByRound = games.scatts?.potByRound;
@@ -50,7 +50,9 @@ export default function WinningsScreen({ event }) {
   });
 
   const numRounds = [1, 2, 3].filter((r) => rounds[r] && courses[rounds[r]?.courseId] && Object.keys(rounds[r]?.scores || {}).length).length;
-  const totalCollected = players.length * buyIn * numRounds;
+  const totalCollected = weekendBuyIn
+    ? players.length * weekendBuyIn
+    : players.length * buyIn * numRounds;
   const totalPaidOut = Object.values(winnings).reduce((a, b) => a + b.total, 0);
 
   const ctpHoles = games.ctp?.holes || {};
@@ -61,7 +63,7 @@ export default function WinningsScreen({ event }) {
         Winnings
       </div>
       <div style={{ color: M, fontSize: "14px", marginBottom: "18px" }}>
-        ${buyIn}/player/round · {players.length} players
+        ${weekendBuyIn ?? buyIn}/player · {players.length} players
       </div>
 
       {/* Pot summary */}
