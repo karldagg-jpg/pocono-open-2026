@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
 
-const GAME_KEYS = ["scatts", "lowNet", "ctp"];
-const GAME_LABELS = { scatts: "Scats / Skins", lowNet: "Low Net Tournament", ctp: "Closest to Pin" };
+const GAME_KEYS = ["scatts", "lowNet", "ctp", "hio"];
+const GAME_LABELS = { scatts: "Scats / Skins", lowNet: "Low Net Tournament", ctp: "Closest to Pin", hio: "Hole in One Bonus" };
 
 export default function GamesScreen({ event, saveEvent }) {
   const { players = [], courses = {}, games: savedGames = {} } = event;
@@ -20,9 +20,21 @@ export default function GamesScreen({ event, saveEvent }) {
   });
   const [birdieOptOuts, setBirdieOptOuts] = useState(() => new Set(event.birdieOptOuts || []));
   const [games, setGames] = useState(() => {
-    const defaults = { scatts: { enabled: true, pot: 0 }, lowNet: { enabled: true, pot: 0, payoutPcts: [50, 30, 20] }, ctp: { enabled: true, pot: 0, holes: {}, results: {} } };
+    const defaults = {
+      scatts: { enabled: true, potByRound: { 1: 0, 2: 0, 3: 0 } },
+      lowNet: { enabled: true, pot: 0, payoutPcts: [50, 30, 20] },
+      ctp: { enabled: true, pot: 0, holes: {}, results: {} },
+      hio: { enabled: true, pot: 0 },
+    };
     const g = {};
     GAME_KEYS.forEach((k) => { g[k] = { ...defaults[k], ...(savedGames[k] || {}) }; });
+    // Migrate legacy scatts.pot → split equally across rounds
+    if (g.scatts && !g.scatts.potByRound && g.scatts.pot) {
+      const perRound = Math.floor(g.scatts.pot / 3);
+      g.scatts.potByRound = { 1: perRound, 2: perRound, 3: g.scatts.pot - perRound * 2 };
+    } else if (g.scatts && !g.scatts.potByRound) {
+      g.scatts.potByRound = { 1: 0, 2: 0, 3: 0 };
+    }
     return g;
   });
   // optOuts: set of player IDs not participating in games
@@ -40,7 +52,10 @@ export default function GamesScreen({ event, saveEvent }) {
       return next;
     });
   }
-  const allocated = GAME_KEYS.filter((k) => games[k].enabled).reduce((s, k) => s + (Number(games[k].pot) || 0), 0);
+  const allocated = GAME_KEYS.filter((k) => games[k]?.enabled).reduce((s, k) => {
+    if (k === "scatts") return s + Object.values(games[k].potByRound || {}).reduce((a, b) => a + (Number(b) || 0), 0);
+    return s + (Number(games[k].pot) || 0);
+  }, 0);
   const remaining = totalPot - allocated;
 
   function updateGame(key, field, val) {
@@ -48,11 +63,19 @@ export default function GamesScreen({ event, saveEvent }) {
   }
 
   function splitEqually() {
-    const enabled = GAME_KEYS.filter((k) => games[k].enabled);
+    const enabled = GAME_KEYS.filter((k) => games[k]?.enabled);
     if (!enabled.length || !totalPot) return;
     const share = Math.floor(totalPot / enabled.length);
     const next = { ...games };
-    enabled.forEach((k, i) => { next[k] = { ...next[k], pot: share + (i === 0 ? totalPot - share * enabled.length : 0) }; });
+    enabled.forEach((k, i) => {
+      const thisShare = share + (i === 0 ? totalPot - share * enabled.length : 0);
+      if (k === "scatts") {
+        const perRound = Math.floor(thisShare / 3);
+        next[k] = { ...next[k], potByRound: { 1: perRound + (thisShare - perRound * 3), 2: perRound, 3: perRound } };
+      } else {
+        next[k] = { ...next[k], pot: thisShare };
+      }
+    });
     setGames(next);
   }
 
@@ -170,31 +193,39 @@ export default function GamesScreen({ event, saveEvent }) {
 
         {GAME_KEYS.map((key) => {
           const g = games[key];
+          if (key === "scatts") {
+            const pbr = g.potByRound || { 1: 0, 2: 0, 3: 0 };
+            const total = Object.values(pbr).reduce((a, b) => a + (Number(b) || 0), 0);
+            return (
+              <div key={key} style={{ padding: "12px 14px", borderBottom: `1px solid #d0d8d0` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: g.enabled ? "10px" : 0 }}>
+                  <input type="checkbox" checked={g.enabled} onChange={(e) => updateGame(key, "enabled", e.target.checked)} style={{ width: "16px", height: "16px", cursor: "pointer", accentColor: G }} />
+                  <div style={{ flex: 1, fontSize: "14px", color: g.enabled ? CREAM : M }}>{GAME_LABELS[key]}</div>
+                  {total > 0 && <div style={{ fontSize: "13px", color: M }}>${total.toLocaleString()}</div>}
+                </div>
+                {g.enabled && (
+                  <div style={{ paddingLeft: "28px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
+                    {[1, 2, 3].map(rNum => (
+                      <div key={rNum}>
+                        <div style={{ fontSize: "11px", color: M, marginBottom: "3px" }}>Round {rNum}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                          <span style={{ fontSize: "13px", color: M }}>$</span>
+                          <input type="number" value={pbr[rNum] || ""} onChange={(e) => updateGame(key, "potByRound", { ...pbr, [rNum]: Number(e.target.value) || 0 })} min="0" placeholder="0" style={{ width: "100%", padding: "7px 8px", textAlign: "right", borderRadius: "7px", border: `1px solid #c8d0c8`, background: "#fff", color: CREAM, fontFamily: FB, fontSize: "14px", fontWeight: 600, outline: "none" }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          }
           return (
             <div key={key} style={{ padding: "12px 14px", borderBottom: `1px solid #d0d8d0`, display: "flex", alignItems: "center", gap: "12px" }}>
-              <input type="checkbox" checked={g.enabled}
-                onChange={(e) => updateGame(key, "enabled", e.target.checked)}
-                style={{ width: "16px", height: "16px", cursor: "pointer", accentColor: G }} />
-              <div style={{ flex: 1, fontSize: "14px", color: g.enabled ? CREAM : M }}>
-                {GAME_LABELS[key]}
-              </div>
+              <input type="checkbox" checked={g.enabled} onChange={(e) => updateGame(key, "enabled", e.target.checked)} style={{ width: "16px", height: "16px", cursor: "pointer", accentColor: G }} />
+              <div style={{ flex: 1, fontSize: "14px", color: g.enabled ? CREAM : M }}>{GAME_LABELS[key]}</div>
               <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                 <span style={{ fontSize: "13px", color: M }}>$</span>
-                <input
-                  type="number"
-                  value={g.pot || ""}
-                  onChange={(e) => updateGame(key, "pot", Number(e.target.value) || 0)}
-                  disabled={!g.enabled}
-                  min="0"
-                  placeholder="0"
-                  style={{
-                    width: "80px", padding: "7px 10px", textAlign: "right",
-                    borderRadius: "7px", border: `1px solid #c8d0c8`,
-                    background: g.enabled ? "#fff" : "transparent",
-                    color: g.enabled ? CREAM : M,
-                    fontFamily: FB, fontSize: "15px", fontWeight: 600, outline: "none",
-                  }}
-                />
+                <input type="number" value={g.pot || ""} onChange={(e) => updateGame(key, "pot", Number(e.target.value) || 0)} disabled={!g.enabled} min="0" placeholder="0" style={{ width: "80px", padding: "7px 10px", textAlign: "right", borderRadius: "7px", border: `1px solid #c8d0c8`, background: g.enabled ? "#fff" : "transparent", color: g.enabled ? CREAM : M, fontFamily: FB, fontSize: "15px", fontWeight: 600, outline: "none" }} />
               </div>
             </div>
           );

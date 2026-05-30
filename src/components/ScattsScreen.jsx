@@ -8,8 +8,10 @@ export default function ScattsScreen({ event }) {
 
   const round = rounds[activeRound] || {};
   const course = courses[round.courseId || activeRound];
-  // Per-round scatts pot: allocated ÷ 3 rounds ÷ players, else weekendBuyIn÷3, else legacy buyIn
-  const scattsBuyIn = games.scatts?.enabled && games.scatts?.pot
+  const potByRound = games.scatts?.potByRound;
+  const scattsBuyIn = potByRound?.[activeRound]
+    ? potByRound[activeRound] / Math.max(players.length, 1)
+    : games.scatts?.enabled && games.scatts?.pot
     ? games.scatts.pot / 3 / Math.max(players.length, 1)
     : weekendBuyIn
     ? weekendBuyIn / 3
