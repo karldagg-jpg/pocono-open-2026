@@ -1,21 +1,28 @@
 import { CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
-import { calcWinnings, calcLeaderboard, calcScatts, calcLowNet, calcCTP, calcBirdiePool, gamblingPlayers, birdiePoolPlayers } from "../lib/golfLogic";
+import { calcWinnings, calcLeaderboard, calcScatts, calcLowNet, calcCTP, calcBirdiePool, calcHIOBonus, gamblingPlayers, birdiePoolPlayers } from "../lib/golfLogic";
 
 export default function WinningsScreen({ event }) {
   const { players = [], courses = {}, rounds = {}, buyIn = 100, games = {} } = event;
   const winnings = calcWinnings(event);
 
-  const scattsBuyIn = games.scatts?.enabled && games.scatts?.pot != null
-    ? games.scatts.pot / Math.max(players.length, 1)
-    : buyIn;
-
+  const potByRound = games.scatts?.potByRound;
   const scattsByRound = [1, 2, 3].map((rNum) => {
     const round = rounds[rNum];
     if (!round) return null;
     const course = courses[round.courseId];
     if (!course || !Object.keys(round.scores || {}).length) return null;
-    return calcScatts(round.scores || {}, course, players, scattsBuyIn);
+    let roundBuyIn;
+    if (potByRound?.[rNum]) {
+      roundBuyIn = potByRound[rNum] / Math.max(players.length, 1);
+    } else if (games.scatts?.enabled && games.scatts?.pot) {
+      roundBuyIn = games.scatts.pot / 3 / Math.max(players.length, 1);
+    } else {
+      roundBuyIn = buyIn;
+    }
+    return calcScatts(round.scores || {}, course, players, roundBuyIn);
   });
+
+  const hioResult = (games.hio?.enabled && games.hio?.pot) ? calcHIOBonus(event) : null;
 
   const { payouts: lnPayouts, positions: lnPositions, pot: lnPot, pcts: lnPcts, prizes: lnPrizes } = calcLowNet(event);
   const { payouts: ctpPayouts, totalWins: ctpWins, perWin: ctpPerWin, pot: ctpPot, ctpResults } = calcCTP(event);
@@ -173,6 +180,20 @@ export default function WinningsScreen({ event }) {
         </Section>
       )}
 
+      {/* ── HIO Bonus ── */}
+      {hioResult && (
+        <Section title="Hole in One Bonus" pot={hioResult.pot} color={GOLD}>
+          {hioResult.hioWinners.length === 0 ? (
+            <div style={{ padding: "12px 14px", fontSize: "13px", color: M }}>No hole in ones recorded yet.</div>
+          ) : hioResult.hioWinners.map((hw, i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderBottom: `1px solid rgba(201,168,76,0.08)` }}>
+              <span style={{ fontSize: "13px", color: CREAM }}>{hw.player.name} · R{hw.round} H{hw.hole}</span>
+              <span style={{ fontSize: "14px", fontWeight: 700, color: GO }}>${hioResult.perWinner.toLocaleString()}</span>
+            </div>
+          ))}
+        </Section>
+      )}
+
       {/* ── Birdie Pool ── */}
       {birdiePoolEnabled && (
         <Section title="Birdie / Eagle / HIO Pool" color={G}>
@@ -235,7 +256,8 @@ export default function WinningsScreen({ event }) {
               <div style={{ fontSize: "11px", color: M, textAlign: "right" }}>
                 {w.scatts > 0 && <span style={{ color: G }}>Scats ${w.scatts} </span>}
                 {w.lowNet > 0 && <span style={{ color: GO }}>LN ${w.lowNet} </span>}
-                {w.ctp > 0 && <span style={{ color: GOLD }}>CTP ${w.ctp}</span>}
+                {w.ctp > 0 && <span style={{ color: GOLD }}>CTP ${w.ctp} </span>}
+                {w.hio > 0 && <span style={{ color: GOLD }}>HIO ${w.hio}</span>}
               </div>
               <div style={{ fontSize: "18px", fontWeight: 700, color: w.total > 0 ? GO : M, minWidth: "64px", textAlign: "right" }}>
                 ${w.total.toLocaleString()}

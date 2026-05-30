@@ -266,17 +266,47 @@ export function calcCTP(event) {
   return { payouts, totalWins, pot, perWin, ctpResults };
 }
 
+// ── HIO Bonus ─────────────────────────────────────────────────────────────────
+// Separate allocated pot (from weekend buy-in) awarded to any player who makes a HIO.
+// Multiple HIOs split the pot evenly.
+export function calcHIOBonus(event) {
+  const { courses = {}, rounds = {}, games = {} } = event;
+  const players = gamblingPlayers(event);
+  const cfg = games.hio || {};
+  const pot = cfg.pot || 0;
+
+  const hioWinners = [];
+  [1, 2, 3].forEach(rNum => {
+    const round = rounds[rNum];
+    if (!round) return;
+    const course = courses[round.courseId];
+    if (!course) return;
+    for (const p of players) {
+      const scores = (round.scores || {})[p.id];
+      if (!scores) continue;
+      for (let h = 0; h < 18; h++) {
+        if (scores[h] === 1) hioWinners.push({ player: p, round: rNum, hole: h + 1 });
+      }
+    }
+  });
+
+  const perWinner = hioWinners.length > 0 ? Math.round(pot / hioWinners.length) : 0;
+  const payouts = {};
+  players.forEach(p => { payouts[p.id] = 0; });
+  hioWinners.forEach(({ player }) => { payouts[player.id] = (payouts[player.id] || 0) + perWinner; });
+
+  return { hioWinners, pot, perWinner, payouts };
+}
+
 // ── Winnings ─────────────────────────────────────────────────────────────────
 export function calcWinnings(event) {
   const { courses = {}, rounds = {}, games = {}, buyIn = 100, weekendBuyIn } = event;
   const players  = gamblingPlayers(event);
   const useIndex = games?.useIndexHcp !== false;
   const winnings = {};
-  players.forEach(p => { winnings[p.id] = { scatts: 0, lowNet: 0, ctp: 0, total: 0 }; });
+  players.forEach(p => { winnings[p.id] = { scatts: 0, lowNet: 0, ctp: 0, hio: 0, total: 0 }; });
 
-  const scattsBuyIn = games.scatts?.enabled && games.scatts?.pot
-    ? games.scatts.pot / 3 / Math.max(players.length, 1)
-    : weekendBuyIn ? weekendBuyIn / 3 : buyIn;
+  const potByRound = games.scatts?.potByRound;
 
   [1, 2, 3].forEach(rNum => {
     const round = rounds[rNum];
@@ -285,6 +315,16 @@ export function calcWinnings(event) {
     if (!course) return;
     const hasScores = players.some(p => (round.scores || {})[p.id]?.filter(Boolean).length > 0);
     if (!hasScores) return;
+
+    let scattsBuyIn;
+    if (potByRound && potByRound[rNum]) {
+      scattsBuyIn = potByRound[rNum] / Math.max(players.length, 1);
+    } else if (games.scatts?.enabled && games.scatts?.pot) {
+      scattsBuyIn = games.scatts.pot / 3 / Math.max(players.length, 1);
+    } else {
+      scattsBuyIn = weekendBuyIn ? weekendBuyIn / 3 : buyIn;
+    }
+
     const { holeWinners, scattValue } = calcScatts(round.scores || {}, course, players, scattsBuyIn, useIndex);
     Object.entries(holeWinners).forEach(([pid, scatts]) => {
       const id = Number(pid);
@@ -304,8 +344,16 @@ export function calcWinnings(event) {
     if (winnings[id]) winnings[id].ctp = amt;
   });
 
+  if (games.hio?.enabled && games.hio?.pot) {
+    const { payouts: hioPayouts } = calcHIOBonus(event);
+    Object.entries(hioPayouts).forEach(([pid, amt]) => {
+      const id = Number(pid);
+      if (winnings[id]) winnings[id].hio = amt;
+    });
+  }
+
   players.forEach(p => {
-    if (winnings[p.id]) winnings[p.id].total = winnings[p.id].scatts + winnings[p.id].lowNet + winnings[p.id].ctp;
+    if (winnings[p.id]) winnings[p.id].total = winnings[p.id].scatts + winnings[p.id].lowNet + winnings[p.id].ctp + winnings[p.id].hio;
   });
 
   return winnings;
