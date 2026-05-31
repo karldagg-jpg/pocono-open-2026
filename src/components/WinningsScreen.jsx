@@ -246,38 +246,26 @@ export default function WinningsScreen({ event }) {
         </Section>
       )}
 
-      {/* ── Settlement ── */}
+      {/* ── Player Summary ── */}
       <div className="card2">
-        <div className="card-header">Settlement</div>
-        {(() => {
-          const perPlayerPaid = weekendBuyIn || buyIn;
-          const gamblers = gamblingPlayers(event);
-          const rows = gamblers.map(p => {
-            const w = winnings[p.id] || { scatts: 0, lowNet: 0, ctp: 0, hio: 0, total: 0 };
-            const birdieNet = birdieNetBalance[p.id] || 0;
-            const net = w.total + birdieNet - perPlayerPaid;
-            return { p, w, birdieNet, net, paid: perPlayerPaid };
-          }).sort((a, b) => b.net - a.net);
-
-          return rows.map(({ p, w, birdieNet, net, paid }) => (
-            <div key={p.id} style={{ padding: "10px 14px", borderBottom: `1px solid rgba(201,168,76,0.08)` }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <div style={{ flex: 1, fontSize: "14px", color: net > 0 ? CREAM : net < 0 ? M : M }}>{p.name}</div>
-                <div style={{ fontSize: "18px", fontWeight: 700, color: net > 0 ? GO : net < 0 ? R : M, minWidth: "72px", textAlign: "right" }}>
-                  {net > 0 ? `+$${net.toLocaleString()}` : net < 0 ? `-$${Math.abs(net).toLocaleString()}` : "—"}
-                </div>
+        <div className="card-header">Player Summary</div>
+        {players
+          .map((p) => ({ p, w: winnings[p.id] || { scatts: 0, lowNet: 0, ctp: 0, total: 0 } }))
+          .sort((a, b) => b.w.total - a.w.total)
+          .map(({ p, w }) => (
+            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", borderBottom: `1px solid rgba(201,168,76,0.08)` }}>
+              <div style={{ flex: 1, fontSize: "14px", color: w.total > 0 ? CREAM : M }}>{p.name}</div>
+              <div style={{ fontSize: "11px", color: M, textAlign: "right" }}>
+                {w.scatts > 0 && <span style={{ color: G }}>Scats ${w.scatts} </span>}
+                {w.lowNet > 0 && <span style={{ color: GO }}>LN ${w.lowNet} </span>}
+                {w.ctp > 0 && <span style={{ color: GOLD }}>CTP ${w.ctp} </span>}
+                {w.hio > 0 && <span style={{ color: GOLD }}>HIO ${w.hio}</span>}
               </div>
-              <div style={{ fontSize: "11px", color: M, marginTop: "3px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                <span>Paid ${paid}</span>
-                {w.scatts > 0 && <span style={{ color: G }}>Scats +${w.scatts}</span>}
-                {w.lowNet > 0 && <span style={{ color: GO }}>LN +${w.lowNet}</span>}
-                {w.ctp > 0 && <span style={{ color: GOLD }}>CTP +${w.ctp}</span>}
-                {w.hio > 0 && <span style={{ color: GOLD }}>HIO +${w.hio}</span>}
-                {birdieNet !== 0 && <span style={{ color: birdieNet > 0 ? G : R }}>Birdie {birdieNet > 0 ? `+$${birdieNet}` : `-$${Math.abs(birdieNet)}`}</span>}
+              <div style={{ fontSize: "18px", fontWeight: 700, color: w.total > 0 ? GO : M, minWidth: "64px", textAlign: "right" }}>
+                ${w.total.toLocaleString()}
               </div>
             </div>
-          ));
-        })()}
+          ))}
       </div>
     </div>
   );
