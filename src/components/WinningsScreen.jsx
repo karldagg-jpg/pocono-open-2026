@@ -250,19 +250,25 @@ export default function WinningsScreen({ event }) {
       <div className="card2">
         <div className="card-header">Player Summary</div>
         {players
-          .map((p) => ({ p, w: winnings[p.id] || { scatts: 0, lowNet: 0, ctp: 0, total: 0 } }))
-          .sort((a, b) => b.w.total - a.w.total)
-          .map(({ p, w }) => (
+          .map((p) => {
+            const w = winnings[p.id] || { scatts: 0, lowNet: 0, ctp: 0, hio: 0, total: 0 };
+            const birdieNet = birdieNetBalance[p.id] || 0;
+            const netTotal = w.total + birdieNet;
+            return { p, w, birdieNet, netTotal };
+          })
+          .sort((a, b) => b.netTotal - a.netTotal)
+          .map(({ p, w, birdieNet, netTotal }) => (
             <div key={p.id} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", borderBottom: `1px solid rgba(201,168,76,0.08)` }}>
-              <div style={{ flex: 1, fontSize: "14px", color: w.total > 0 ? CREAM : M }}>{p.name}</div>
+              <div style={{ flex: 1, fontSize: "14px", color: netTotal > 0 ? CREAM : M }}>{p.name}</div>
               <div style={{ fontSize: "11px", color: M, textAlign: "right" }}>
                 {w.scatts > 0 && <span style={{ color: G }}>Scats ${w.scatts} </span>}
                 {w.lowNet > 0 && <span style={{ color: GO }}>LN ${w.lowNet} </span>}
                 {w.ctp > 0 && <span style={{ color: GOLD }}>CTP ${w.ctp} </span>}
-                {w.hio > 0 && <span style={{ color: GOLD }}>HIO ${w.hio}</span>}
+                {w.hio > 0 && <span style={{ color: GOLD }}>HIO ${w.hio} </span>}
+                {birdieNet !== 0 && <span style={{ color: birdieNet > 0 ? G : R }}>Birdie {birdieNet > 0 ? `+$${birdieNet}` : `-$${Math.abs(birdieNet)}`}</span>}
               </div>
-              <div style={{ fontSize: "18px", fontWeight: 700, color: w.total > 0 ? GO : M, minWidth: "64px", textAlign: "right" }}>
-                ${w.total.toLocaleString()}
+              <div style={{ fontSize: "18px", fontWeight: 700, color: netTotal > 0 ? GO : netTotal < 0 ? R : M, minWidth: "64px", textAlign: "right" }}>
+                {netTotal >= 0 ? `$${netTotal.toLocaleString()}` : `-$${Math.abs(netTotal).toLocaleString()}`}
               </div>
             </div>
           ))}
