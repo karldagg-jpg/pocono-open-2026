@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, collection, updateDoc, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, collection, updateDoc, setDoc, deleteDoc, serverTimestamp, onSnapshot } from "firebase/firestore";
 import { getAuth, signInAnonymously } from "firebase/auth";
 
 const firebaseConfig = {
@@ -24,6 +24,19 @@ signInAnonymously(auth).catch(() => {});
 
 export const EVENT_DOC = doc(db, "weekends", "pocono-2026");
 export const PRESENCE_COL = collection(db, "weekends", "pocono-2026", "presence");
+
+// Shared course library — a catalog of courses reusable across every weekend.
+// Stored inside the weekends collection so it inherits the same security rules.
+export const LIBRARY_DOC = doc(db, "weekends", "_library");
+
+export function subscribeLibrary(cb) {
+  return onSnapshot(LIBRARY_DOC, (snap) => cb(snap.exists() ? snap.data() : {}), () => cb({}));
+}
+
+// Full replace of the library catalog ({ [courseId]: {name, slope, rating, par, si} }).
+export async function saveLibrary(library) {
+  await setDoc(LIBRARY_DOC, library);
+}
 
 // Write a single player's scores for a round using dot-notation field path.
 // This is concurrent-safe: two people scoring different players won't collide.
