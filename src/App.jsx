@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { onSnapshot, setDoc, updateDoc } from "firebase/firestore";
-import { EVENT_DOC } from "./firebase/client";
+import { weekendDoc, setActiveWeekendId, getActiveWeekendId, subscribeIndex, saveIndex, createWeekend } from "./firebase/client";
 import { BG, CREAM, G, GO, GOLD, M, R, FB, FD } from "./constants/theme";
 import SetupScreen from "./components/SetupScreen";
 import CourseScreen from "./components/CourseScreen";
@@ -51,6 +51,8 @@ export default function App() {
   const [pinInput, setPinInput] = useState("");
   const [authed, setAuthed] = useState(() => localStorage.getItem("po_authed") === "true");
   const [pinError, setPinError] = useState(false);
+  const [weekendId, setWeekendId] = useState(() => getActiveWeekendId());
+  const [weekendIndex, setWeekendIndex] = useState({});
 
   useEffect(() => {
     const on = () => setOnline(true);
@@ -60,15 +62,47 @@ export default function App() {
     return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
   }, []);
 
+  // Weekend index (dropdown source)
+  useEffect(() => subscribeIndex((idx) => setWeekendIndex(idx || {})), []);
+
+  // Subscribe to the active weekend; re-subscribes when the weekend changes.
   useEffect(() => {
-    const unsub = onSnapshot(EVENT_DOC, (snap) => {
-      if (snap.exists()) {
-        setEvent(snap.data());
-        setLastSynced(new Date());
-      }
+    setActiveWeekendId(weekendId);
+    setEvent(DEFAULT_EVENT);
+    const unsub = onSnapshot(weekendDoc(weekendId), (snap) => {
+      setEvent(snap.exists() ? snap.data() : DEFAULT_EVENT);
+      setLastSynced(new Date());
     }, (err) => console.warn("Firestore:", err));
     return unsub;
-  }, []);
+  }, [weekendId]);
+
+  // Seed the index with the active weekend if it isn't listed yet.
+  useEffect(() => {
+    if (!weekendId || weekendIndex[weekendId]) return;
+    const label = event?.name || weekendId;
+    saveIndex({ ...weekendIndex, [weekendId]: { label, archived: false } });
+  }, [weekendId, weekendIndex, event?.name]);
+
+  function switchWeekend(id) {
+    if (!id || id === weekendId) return;
+    setActiveWeekendId(id);
+    setWeekendId(id);
+  }
+
+  async function handleNewWeekend() {
+    const label = window.prompt("Name this weekend (e.g. \"Pocono Open 2027\"):");
+    if (!label || !label.trim()) return;
+    const id = `w_${Date.now().toString(36)}`;
+    const blank = { ...DEFAULT_EVENT, name: label.trim() };
+    await createWeekend(id, blank);
+    await saveIndex({ ...weekendIndex, [id]: { label: label.trim(), archived: false } });
+    switchWeekend(id);
+  }
+
+  async function toggleArchive() {
+    const cur = weekendIndex[weekendId] || { label: event?.name || weekendId, archived: false };
+    await saveIndex({ ...weekendIndex, [weekendId]: { ...cur, archived: !cur.archived } });
+  }
 
   // Update "ago" display every 30s
   const [, setTick] = useState(0);
@@ -87,12 +121,12 @@ export default function App() {
     setSaving(true);
     const firestoreData = (patch && typeof patch === "object") ? patch : updated;
     try {
-      await updateDoc(EVENT_DOC, firestoreData);
+      await updateDoc(weekendDoc(), firestoreData);
       setLastSynced(new Date());
     } catch (e) {
       if (e.code === "not-found") {
         // First-time doc creation
-        await setDoc(EVENT_DOC, updated);
+        await setDoc(weekendDoc(), updated);
         setLastSynced(new Date());
       } else {
         console.warn("Queued offline:", e.message);
@@ -142,6 +176,15 @@ export default function App() {
     return `${mins}m ago`;
   }
 
+  const weekendOptions = (() => {
+    const idx = { ...weekendIndex };
+    if (!idx[weekendId]) idx[weekendId] = { label: event?.name || weekendId, archived: false };
+    return Object.entries(idx)
+      .map(([id, m]) => ({ id, label: m?.label || id, archived: !!m?.archived }))
+      .sort((a, b) => (a.archived - b.archived) || a.label.localeCompare(b.label));
+  })();
+  const curArchived = !!weekendIndex[weekendId]?.archived;
+
   return (
     <div style={{ minHeight: "100dvh", background: BG, color: CREAM, fontFamily: FB }}>
       {/* Header */}
@@ -152,8 +195,33 @@ export default function App() {
       }}>
         <div style={{ maxWidth: "900px", margin: "0 auto", padding: "0 14px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: "10px", paddingBottom: "6px" }}>
-            <div style={{ fontFamily: FD, fontSize: "20px", fontWeight: 600, color: CREAM }}>
-              Pocono Open 2026
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
+              <select
+                value={weekendId}
+                onChange={(e) => switchWeekend(e.target.value)}
+                title="Switch weekend"
+                style={{
+                  fontFamily: FD, fontSize: "20px", fontWeight: 600, color: CREAM,
+                  background: "transparent", border: "none", outline: "none", cursor: "pointer",
+                  maxWidth: "62vw", textOverflow: "ellipsis",
+                }}
+              >
+                {weekendOptions.map((w) => (
+                  <option key={w.id} value={w.id}>{w.label}{w.archived ? " (archived)" : ""}</option>
+                ))}
+              </select>
+              {authed && (
+                <>
+                  <button onClick={handleNewWeekend} title="New weekend"
+                    style={{ padding: "3px 9px", borderRadius: "6px", border: `1px solid ${G}55`, background: G + "18", color: G, fontFamily: FB, fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>
+                    + New
+                  </button>
+                  <button onClick={toggleArchive} title={curArchived ? "Unarchive this weekend" : "Archive this weekend"}
+                    style={{ padding: "3px 9px", borderRadius: "6px", border: `1px solid ${GOLD}44`, background: "transparent", color: M, fontFamily: FB, fontSize: "12px", fontWeight: 600, cursor: "pointer" }}>
+                    {curArchived ? "Unarchive" : "Archive"}
+                  </button>
+                </>
+              )}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               {saving && <span style={{ fontSize: "11px", color: M }}>saving...</span>}
