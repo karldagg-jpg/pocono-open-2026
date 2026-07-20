@@ -12,6 +12,7 @@ import WinningsScreen from "./components/WinningsScreen";
 import GamesScreen from "./components/GamesScreen";
 import ReplayScreen from "./components/ReplayScreen";
 import ThursdayScreen from "./components/ThursdayScreen";
+import SixiesScreen from "./components/SixiesScreen";
 
 const TABS = [
   { id: "leaderboard", label: "Leaderboard" },
@@ -24,6 +25,7 @@ const TABS = [
   { id: "courses",     label: "Courses" },
   { id: "setup",       label: "Players" },
   { id: "thursday",   label: "Thursday" },
+  { id: "sixies",      label: "Sixies" },
 ];
 
 const DEFAULT_EVENT = {
@@ -129,7 +131,7 @@ export default function App() {
     : ["leaderboard", "scoring", "scatts", "replay", "winnings", "thursday"];
   const MORE = isSetupPhase
     ? ["leaderboard", "scoring", "scatts", "replay"]
-    : ["games", "pairings", "courses", "setup"];
+    : ["games", "sixies", "pairings", "courses", "setup"];
 
   function syncAgo() {
     if (!lastSynced) return null;
@@ -233,6 +235,7 @@ export default function App() {
           {screen === "games"       && <GamesScreen       event={event} saveEvent={saveEvent} />}
           {screen === "replay"      && <ReplayScreen      event={event} />}
           {screen === "thursday"    && <ThursdayScreen    event={event} saveEvent={saveEvent} />}
+          {screen === "sixies"      && <SixiesScreen      event={event} saveEvent={saveEvent} />}
         </div>
       )}
     </div>
