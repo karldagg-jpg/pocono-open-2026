@@ -22,8 +22,26 @@ const db = initializeFirestore(app, {
 const auth = getAuth(app);
 signInAnonymously(auth).catch(() => {});
 
-export const EVENT_DOC = doc(db, "weekends", "pocono-2026");
-export const PRESENCE_COL = collection(db, "weekends", "pocono-2026", "presence");
+// ── Active weekend ──────────────────────────────────────────────────────────
+// The app can switch between weekends; helpers below target whichever is active.
+const DEFAULT_WEEKEND_ID = "pocono-2026";
+let activeWeekendId = (() => { try { return localStorage.getItem("po_weekend") || DEFAULT_WEEKEND_ID; } catch { return DEFAULT_WEEKEND_ID; } })();
+export function getActiveWeekendId() { return activeWeekendId; }
+export function setActiveWeekendId(id) {
+  activeWeekendId = id;
+  try { localStorage.setItem("po_weekend", id); } catch { /* ignore */ }
+}
+export function weekendDoc(id = activeWeekendId) { return doc(db, "weekends", id); }
+export function presenceCol(id = activeWeekendId) { return collection(db, "weekends", id, "presence"); }
+
+// ── Weekend index ───────────────────────────────────────────────────────────
+// { [weekendId]: { label, dates, archived } } — powers the weekend dropdown.
+export const INDEX_DOC = doc(db, "weekends", "_index");
+export function subscribeIndex(cb) {
+  return onSnapshot(INDEX_DOC, (s) => cb(s.exists() ? s.data() : {}), () => cb({}));
+}
+export async function saveIndex(index) { await setDoc(INDEX_DOC, index); }
+export async function createWeekend(id, initialData) { await setDoc(weekendDoc(id), initialData); }
 
 // Shared course library — a catalog of courses reusable across every weekend.
 // Stored inside the weekends collection so it inherits the same security rules.
@@ -47,12 +65,12 @@ export async function savePlayerScore(roundNum, playerId, scores, courseId) {
   if (courseId) {
     fields[`rounds.${roundNum}.courseId`] = courseId;
   }
-  await updateDoc(EVENT_DOC, fields);
+  await updateDoc(weekendDoc(), fields);
 }
 
 // Write a round's courseId using dot-notation
 export async function saveRoundCourse(roundNum, courseId) {
-  await updateDoc(EVENT_DOC, {
+  await updateDoc(weekendDoc(), {
     [`rounds.${roundNum}.courseId`]: courseId,
   });
 }
@@ -61,7 +79,7 @@ export async function saveRoundCourse(roundNum, courseId) {
 const SESSION_ID = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 export function presenceDoc() {
-  return doc(PRESENCE_COL, SESSION_ID);
+  return doc(presenceCol(), SESSION_ID);
 }
 
 export async function updatePresence(playerName, roundNum, groupIdx, holeNum) {
@@ -76,7 +94,7 @@ export async function updatePresence(playerName, roundNum, groupIdx, holeNum) {
 
 // Full document replace — used for seeding test data
 export async function resetEvent(data) {
-  await setDoc(EVENT_DOC, data);
+  await setDoc(weekendDoc(), data);
 }
 
 export async function clearPresence() {
