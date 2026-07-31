@@ -157,6 +157,23 @@ export default function SixiesScreen({ event, saveEvent, library }) {
     });
   const leaderId = anyScores && standings.length && standings[0].taken > 0 ? standings[0].id : null;
 
+  // ── Winnings (winner-takes-all pot, settled per nine) ────────────────────────
+  const ante = Number(stakes.amount) || 0;
+  const pot = ante * selPlayers.length;
+  const allComplete = selPlayers.length >= 2 && selPlayers.every((p) => sixiesComplete(p.id));
+  const settlement = (() => {
+    if (!ante || selPlayers.length < 2 || !allComplete) return null;
+    const nets = selPlayers.map((p) => ({
+      id: p.id, name: p.name, color: COLORS[playerIds.indexOf(p.id)], net: sixiesTotal(p.id),
+    }));
+    const min = Math.min(...nets.map((n) => n.net));
+    const winners = nets.filter((n) => n.net === min);
+    const share = pot / winners.length;
+    return nets
+      .map((n) => ({ ...n, isWinner: n.net === min, win: n.net === min ? share - ante : -ante }))
+      .sort((a, b) => b.win - a.win);
+  })();
+
   // ── Empty states ────────────────────────────────────────────────────────────
   if (players.length === 0 || courseKeys.length === 0) {
     return (
@@ -210,7 +227,7 @@ export default function SixiesScreen({ event, saveEvent, library }) {
       </div>
 
       {/* Playing for — stakes banner */}
-      <StakesBanner stakes={stakes} setStakes={setStakes} leader={standings.find((s) => s.id === leaderId)} />
+      <StakesBanner stakes={stakes} setStakes={setStakes} nPlayers={selPlayers.length} />
 
       {/* Player picker */}
       <div style={{ marginBottom: "14px" }}>
@@ -476,6 +493,39 @@ export default function SixiesScreen({ event, saveEvent, library }) {
               </div>
             </div>
           )}
+
+          {/* Winnings — winner-takes-all pot for this nine */}
+          {ante > 0 && anyScores && selPlayers.length >= 2 && (
+            <div style={{ background: G + "0d", border: `1px solid ${G}44`, borderRadius: "14px", padding: "14px", marginTop: "12px" }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: "8px", flexWrap: "wrap", marginBottom: "8px" }}>
+                <span style={{ fontSize: "11px", letterSpacing: "0.1em", textTransform: "uppercase", color: G, fontWeight: 700 }}>💰 Winnings</span>
+                <span style={{ fontSize: "12px", color: M }}>${ante} each · <strong style={{ color: CREAM }}>${pot} pot</strong> · winner takes all</span>
+              </div>
+              {allComplete && settlement ? (
+                <>
+                  {settlement.map((s) => (
+                    <div key={s.id} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 0", borderBottom: `1px solid ${G}18` }}>
+                      <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: s.color }} />
+                      <span style={{ flex: 1, fontSize: "15px", fontWeight: 600, color: CREAM }}>
+                        {s.name}{s.isWinner && <span style={{ marginLeft: "8px", fontSize: "11px", fontWeight: 700, color: G }}>◆ takes the pot</span>}
+                      </span>
+                      <span style={{ fontSize: "18px", fontWeight: 800, color: s.win > 0 ? G : s.win < 0 ? R : M, minWidth: "56px", textAlign: "right" }}>
+                        {s.win > 0 ? `+$${s.win % 1 === 0 ? s.win : s.win.toFixed(2)}` : s.win < 0 ? `−$${Math.abs(s.win)}` : "$0"}
+                      </span>
+                    </div>
+                  ))}
+                  {settlement.filter((s) => s.isWinner).length > 1 && (
+                    <div style={{ fontSize: "11px", color: M, marginTop: "8px" }}>Tie for low net — pot split evenly.</div>
+                  )}
+                </>
+              ) : (
+                <div style={{ fontSize: "13px", color: M }}>
+                  Not final — {selPlayers.filter((p) => !sixiesComplete(p.id)).length} still out.
+                  {leaderId && <> If it ended now, <strong style={{ color: G }}>{standings[0].name}</strong> takes the ${pot} pot.</>}
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
     </div>
@@ -521,47 +571,36 @@ function NavArrow({ disabled, onClick, children }) {
   );
 }
 
-function StakesBanner({ stakes, setStakes, leader }) {
+function StakesBanner({ stakes, setStakes, nPlayers }) {
   const [open, setOpen] = useState(false);
   const amount = stakes.amount;
   const has = amount !== "" && amount != null && Number(amount) > 0;
-  const unitLabel = stakes.unit === "point" ? "per point" : "per game";
+  const pot = (Number(amount) || 0) * nPlayers;
   return (
     <div style={{ background: GOLD + "12", border: `1px solid ${GOLD}55`, borderRadius: "12px", padding: "11px 14px", marginBottom: "12px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
         <span style={{ fontSize: "11px", letterSpacing: "0.08em", textTransform: "uppercase", color: GOLD, fontWeight: 700 }}>Playing for</span>
         <span style={{ fontSize: "17px", fontWeight: 800, color: CREAM }}>
-          {has ? `$${amount} ${unitLabel}` : "—"}
+          {has ? `$${amount} each` : "—"}
         </span>
+        {has && nPlayers >= 2 && <span style={{ fontSize: "13px", color: M }}>· ${pot} pot · winner takes all</span>}
         {stakes.note && <span style={{ fontSize: "13px", color: M }}>· {stakes.note}</span>}
-        {has && leader && (
-          <span style={{ marginLeft: "auto", fontSize: "13px", fontWeight: 700, color: GOLD }}>
-            {leader.name} leading
-          </span>
-        )}
         <button onClick={() => setOpen((o) => !o)}
-          style={{ marginLeft: has && leader ? "10px" : "auto", padding: "5px 11px", borderRadius: "7px", border: `1px solid ${GOLD}44`, background: "transparent", color: GOLD, fontFamily: FB, fontSize: "12px", fontWeight: 600, cursor: "pointer" }}>
+          style={{ marginLeft: "auto", padding: "5px 11px", borderRadius: "7px", border: `1px solid ${GOLD}44`, background: "transparent", color: GOLD, fontFamily: FB, fontSize: "12px", fontWeight: 600, cursor: "pointer" }}>
           {open ? "Done" : has ? "Edit" : "Set stakes"}
         </button>
       </div>
       {open && (
         <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "flex-end", marginTop: "10px" }}>
           <div>
-            <div style={labelStyle}>Amount ($)</div>
+            <div style={labelStyle}>Buy-in per player ($)</div>
             <input type="number" min="0" inputMode="decimal" value={amount}
               onChange={(e) => setStakes({ amount: e.target.value })} placeholder="e.g. 5"
-              style={{ width: "90px", padding: "8px 10px", borderRadius: "7px", border: `1px solid ${GOLD}44`, background: "#fff", color: CREAM, fontFamily: FB, fontSize: "14px", outline: "none" }} />
-          </div>
-          <div>
-            <div style={labelStyle}>Per</div>
-            <div style={{ display: "flex", gap: "4px" }}>
-              <Seg active={stakes.unit !== "point"} onClick={() => setStakes({ unit: "game" })}>Game</Seg>
-              <Seg active={stakes.unit === "point"} onClick={() => setStakes({ unit: "point" })}>Point</Seg>
-            </div>
+              style={{ width: "110px", padding: "8px 10px", borderRadius: "7px", border: `1px solid ${GOLD}44`, background: "#fff", color: CREAM, fontFamily: FB, fontSize: "14px", outline: "none" }} />
           </div>
           <div style={{ flex: 1, minWidth: "140px" }}>
             <div style={labelStyle}>Note (optional)</div>
-            <input value={stakes.note} onChange={(e) => setStakes({ note: e.target.value })} placeholder="e.g. winner takes all, auto-press…"
+            <input value={stakes.note} onChange={(e) => setStakes({ note: e.target.value })} placeholder="e.g. junk on birdies, auto-press…"
               style={{ width: "100%", padding: "8px 10px", borderRadius: "7px", border: `1px solid ${GOLD}44`, background: "#fff", color: CREAM, fontFamily: FB, fontSize: "14px", outline: "none", boxSizing: "border-box" }} />
           </div>
         </div>
