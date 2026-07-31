@@ -1,5 +1,5 @@
-import React, { useMemo, useRef } from "react";
-import { G, GO, GOLD, M, R, CREAM, CARD2, FB, FD } from "../constants/theme";
+import { useState, useMemo } from "react";
+import { G, GO, GOLD, M, R, CREAM, CARD, CARD2, FB, FD } from "../constants/theme";
 import { playerCourseHcp } from "../lib/golfLogic";
 
 // ── Scoring helpers ────────────────────────────────────────────────────────────
@@ -9,11 +9,6 @@ function stabPts(gross, par, strokes) {
   const net = gross - strokes;
   return Math.max(0, 2 - (net - par));
 }
-// Max gross that still scores a point (net double bogey).
-function maxGross(par, strokes) {
-  return par + 2 + strokes;
-}
-
 // Distribute a course handicap across the played holes, hardest SI first.
 function allocateStrokes(courseHcp, siList) {
   const n = siList.length;
@@ -25,69 +20,69 @@ function allocateStrokes(courseHcp, siList) {
   return strokes;
 }
 
-// Forced take/pass given prior decisions (in played order).
-// Returns true=forcedTake, false=forcedPass, null=free choice.
-function sixiesForced(decisions, k, nHoles, takesNeeded) {
-  const passesAllowed = nHoles - takesNeeded;
+// Sixies: take 6 of 9 holes. Decisions are made in played order and can't be
+// undone once you've moved on. Forced take/pass given prior decisions:
+//   true = forced take, false = forced pass, null = free choice.
+// Pass all 3 allowed passes → the rest are forced takes. Take all 6 → forced pass.
+const N_HOLES = 9;
+const TAKES_NEEDED = 6;
+const PASSES_ALLOWED = N_HOLES - TAKES_NEEDED; // 3
+
+function sixiesForced(decisions, k) {
   const takesUsed = decisions.slice(0, k).filter((x) => x === true).length;
   const passesUsed = decisions.slice(0, k).filter((x) => x === false).length;
-  if (takesUsed >= takesNeeded) return false;
-  if (passesUsed >= passesAllowed) return true;
-  if ((nHoles - 1 - k) < (takesNeeded - takesUsed)) return true;
+  if (takesUsed >= TAKES_NEEDED) return false;         // already taken 6
+  if (passesUsed >= PASSES_ALLOWED) return true;       // already passed 3
+  if ((N_HOLES - 1 - k) < (TAKES_NEEDED - takesUsed)) return true; // not enough holes left
   return null;
 }
 
-const COLORS = [G, GO, "#4a7fc4", "#9b4db5"];
+const COLORS = [G, GO, "#3f7cc0", "#9b4db5"];
+const NINES = {
+  front: { label: "Front 9", holes: [0, 1, 2, 3, 4, 5, 6, 7, 8] },
+  back:  { label: "Back 9",  holes: [9, 10, 11, 12, 13, 14, 15, 16, 17] },
+};
 
 export default function SixiesScreen({ event, saveEvent, library }) {
   const players = event.players || [];
   const courses = { ...(event.courses || {}), ...library };
   const sx = event.sixies || {};
-  const cellRefs = useRef({});
 
   // ── Config (persisted in event.sixies) ──────────────────────────────────────
   const courseKeys = Object.keys(courses);
-  const mode = sx.mode === "18" ? "18" : "9";
   const courseId = sx.courseId != null && courses[sx.courseId] ? sx.courseId : (courseKeys[0] ?? null);
-  const nine = sx.nine === "back" ? "back" : "front";
+  const game = sx.game === "back" ? "back" : "front";
   const playerIds = Array.isArray(sx.playerIds) ? sx.playerIds : [];
   const scores = sx.scores || {};
   const takes = sx.takes || {};
+  const stakes = sx.stakes || { amount: "", unit: "game", note: "" };
   const course = courseId != null ? courses[courseId] : null;
 
+  const holeIdx = NINES[game].holes;
+  const [activeK, setActiveK] = useState(0); // position 0..8 within the current nine
+
   const persist = (partial) => {
-    const next = { mode, courseId, nine, playerIds, scores, takes, ...partial };
+    const next = { courseId, game, playerIds, scores, takes, stakes, ...partial };
     saveEvent({ ...event, sixies: next }, { sixies: next });
   };
 
-  // Holes played (absolute indices 0..17)
-  const holeIdx = useMemo(() => {
-    if (!course) return [];
-    if (mode === "18") return course.par.map((_, i) => i);
-    return nine === "back" ? [9, 10, 11, 12, 13, 14, 15, 16, 17] : [0, 1, 2, 3, 4, 5, 6, 7, 8];
-  }, [course, mode, nine]);
-
-  const nHoles = holeIdx.length;
-  const takesNeeded = Math.round((nHoles * 2) / 3); // 9→6, 18→12
   const siList = useMemo(() => holeIdx.map((h) => course?.si?.[h] ?? 0), [holeIdx, course]);
   const totalPar = useMemo(() => holeIdx.reduce((s, h) => s + (course?.par?.[h] || 0), 0), [holeIdx, course]);
-
   const selPlayers = playerIds.map((id) => players.find((p) => p.id === id)).filter(Boolean);
 
-  // Strokes per player: { playerId: { absHoleIdx: strokes } }
+  // Strokes per player for this nine: { playerId: { absHoleIdx: strokes } }
   const strokesByPlayer = useMemo(() => {
     const out = {};
     for (const p of selPlayers) {
       if (!course) { out[p.id] = {}; continue; }
-      const chFull = playerCourseHcp(p, course);
-      const ch = mode === "18" ? chFull : Math.round(chFull / 2);
+      const ch = Math.round(playerCourseHcp(p, course) / 2); // half of 18-hole hcp for a nine
       const alloc = allocateStrokes(ch, siList);
       const m = {};
       holeIdx.forEach((h, k) => { m[h] = alloc[k]; });
       out[p.id] = m;
     }
     return out;
-  }, [selPlayers, course, mode, siList, holeIdx]);
+  }, [selPlayers, course, siList, holeIdx]);
 
   // ── Setters ─────────────────────────────────────────────────────────────────
   const togglePlayer = (id) => {
@@ -103,18 +98,27 @@ export default function SixiesScreen({ event, saveEvent, library }) {
     if (val === null) delete pt[h]; else pt[h] = val;
     persist({ takes: { ...takes, [pid]: pt } });
   };
-  const clearScores = () => persist({ scores: {}, takes: {} });
+  const setStakes = (partial) => persist({ stakes: { ...stakes, ...partial } });
+  const clearScores = () => {
+    if (!window.confirm(`Clear all scores and take/pass picks for the ${NINES[game].label}?`)) return;
+    const nextScores = { ...scores }, nextTakes = { ...takes };
+    for (const p of selPlayers) {
+      if (nextScores[p.id]) { nextScores[p.id] = { ...nextScores[p.id] }; holeIdx.forEach((h) => delete nextScores[p.id][h]); }
+      if (nextTakes[p.id]) { nextTakes[p.id] = { ...nextTakes[p.id] }; holeIdx.forEach((h) => delete nextTakes[p.id][h]); }
+    }
+    persist({ scores: nextScores, takes: nextTakes });
+  };
 
   // ── Per-player scoring ───────────────────────────────────────────────────────
   const strokesOn = (pid, h) => strokesByPlayer[pid]?.[h] || 0;
   const grossOn = (pid, h) => scores[pid]?.[h] || 0;
+  const netOn = (pid, h) => grossOn(pid, h) - strokesOn(pid, h);
   const ptsOn = (pid, h) => {
     const g = grossOn(pid, h);
     if (!g) return null;
     return stabPts(g, course.par[h], strokesOn(pid, h));
   };
   const stabTotal = (pid) => holeIdx.reduce((s, h) => s + (ptsOn(pid, h) || 0), 0);
-  const grossTotal = (pid) => holeIdx.reduce((s, h) => s + grossOn(pid, h), 0);
 
   // Sixies decisions in played order → effective take per played hole
   const decisionsOf = (pid) => holeIdx.map((h) => {
@@ -123,7 +127,7 @@ export default function SixiesScreen({ event, saveEvent, library }) {
   });
   const effectiveTakes = (pid) => {
     const dec = decisionsOf(pid);
-    return dec.map((chosen, k) => (chosen !== null ? chosen : sixiesForced(dec, k, nHoles, takesNeeded)));
+    return dec.map((chosen, k) => (chosen !== null ? chosen : sixiesForced(dec, k)));
   };
   const sixiesTotal = (pid) => {
     const eff = effectiveTakes(pid);
@@ -136,29 +140,23 @@ export default function SixiesScreen({ event, saveEvent, library }) {
   };
   const sixiesTaken = (pid) => effectiveTakes(pid).filter((x) => x === true).length;
   const sixiesPassed = (pid) => decisionsOf(pid).filter((x) => x === false).length;
+  const sixiesComplete = (pid) => {
+    const eff = effectiveTakes(pid);
+    // every taken hole must have a gross
+    return eff.every((e, k) => e !== true || grossOn(pid, holeIdx[k]) > 0) && sixiesTaken(pid) === TAKES_NEEDED;
+  };
 
   const anyScores = selPlayers.some((p) => holeIdx.some((h) => grossOn(p.id, h) > 0));
 
-  const stabResults = selPlayers
-    .map((p, i) => ({ id: p.id, name: p.name, stab: stabTotal(p.id), color: COLORS[playerIds.indexOf(p.id)] }))
-    .sort((a, b) => b.stab - a.stab);
-  const sixiesResults = selPlayers
-    .map((p) => ({ id: p.id, name: p.name, total: sixiesTotal(p.id), taken: sixiesTaken(p.id), color: COLORS[playerIds.indexOf(p.id)] }))
-    .sort((a, b) => a.total - b.total); // lower net is better
-
-  // ── Keyboard nav across played holes / players ──────────────────────────────
-  const handleKey = (e, pRow, k) => {
-    const last = selPlayers.length - 1;
-    const focus = (r, c) => cellRefs.current[`${selPlayers[r]?.id}-${holeIdx[c]}`]?.focus();
-    if ((e.key === "Tab" && !e.shiftKey) || e.key === "Enter" || e.key === "ArrowRight") {
-      e.preventDefault();
-      if (k < nHoles - 1) focus(pRow, k + 1); else if (pRow < last) focus(pRow + 1, 0);
-    } else if ((e.key === "Tab" && e.shiftKey) || e.key === "ArrowLeft") {
-      e.preventDefault();
-      if (k > 0) focus(pRow, k - 1); else if (pRow > 0) focus(pRow - 1, nHoles - 1);
-    } else if (e.key === "ArrowDown") { e.preventDefault(); focus(Math.min(last, pRow + 1), k); }
-    else if (e.key === "ArrowUp") { e.preventDefault(); focus(Math.max(0, pRow - 1), k); }
-  };
+  // Sixies standings — lowest net over the 6 taken holes wins
+  const standings = selPlayers
+    .map((p) => ({
+      id: p.id, name: p.name, color: COLORS[playerIds.indexOf(p.id)],
+      total: sixiesTotal(p.id), taken: sixiesTaken(p.id), complete: sixiesComplete(p.id),
+      stab: stabTotal(p.id),
+    }))
+    .sort((a, b) => a.total - b.total);
+  const leaderId = anyScores && standings.length ? standings[0].id : null;
 
   // ── Empty states ────────────────────────────────────────────────────────────
   if (players.length === 0 || courseKeys.length === 0) {
@@ -173,21 +171,26 @@ export default function SixiesScreen({ event, saveEvent, library }) {
     );
   }
 
+  const absHole = holeIdx[activeK];
+
   return (
-    <div style={{ maxWidth: "900px", margin: "0 auto", padding: "16px 12px" }}>
+    <div style={{ maxWidth: "720px", margin: "0 auto", padding: "16px 12px" }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: "12px", flexWrap: "wrap", gap: "8px" }}>
-        <div style={{ fontFamily: FD, fontSize: "26px", fontWeight: 600, color: CREAM }}>⬡ Sixies</div>
+        <div>
+          <div style={{ fontFamily: FD, fontSize: "26px", fontWeight: 600, color: CREAM }}>⬡ Sixies</div>
+          <div style={{ fontSize: "12px", color: M }}>Take {TAKES_NEEDED} of {N_HOLES} · lowest net on your taken holes wins</div>
+        </div>
         {anyScores && (
           <button onClick={clearScores}
             style={{ padding: "8px 14px", borderRadius: "8px", border: `1px solid ${R}44`, background: R + "12", color: R, fontFamily: FB, fontSize: "13px", cursor: "pointer" }}>
-            Clear scores
+            Clear {NINES[game].label}
           </button>
         )}
       </div>
 
-      {/* Config panel */}
-      <div style={{ background: CARD2, border: `1px solid ${GOLD}22`, borderRadius: "12px", padding: "12px 14px", marginBottom: "14px", display: "flex", flexWrap: "wrap", gap: "16px", alignItems: "flex-end" }}>
+      {/* Config: course + which nine (each nine is its own game) */}
+      <div style={{ background: CARD2, border: `1px solid ${GOLD}22`, borderRadius: "12px", padding: "12px 14px", marginBottom: "12px", display: "flex", flexWrap: "wrap", gap: "16px", alignItems: "flex-end" }}>
         <div>
           <div style={labelStyle}>Course</div>
           <select value={courseId ?? ""} onChange={(e) => persist({ courseId: e.target.value })} style={selectStyle}>
@@ -195,25 +198,20 @@ export default function SixiesScreen({ event, saveEvent, library }) {
           </select>
         </div>
         <div>
-          <div style={labelStyle}>Holes</div>
+          <div style={labelStyle}>Game</div>
           <div style={{ display: "flex", gap: "4px" }}>
-            <Seg active={mode === "9"} onClick={() => persist({ mode: "9" })}>9</Seg>
-            <Seg active={mode === "18"} onClick={() => persist({ mode: "18" })}>18</Seg>
+            <Seg active={game === "front"} onClick={() => { persist({ game: "front" }); setActiveK(0); }}>Front 9</Seg>
+            <Seg active={game === "back"} onClick={() => { persist({ game: "back" }); setActiveK(0); }}>Back 9</Seg>
           </div>
         </div>
-        {mode === "9" && (
-          <div>
-            <div style={labelStyle}>Nine</div>
-            <div style={{ display: "flex", gap: "4px" }}>
-              <Seg active={nine === "front"} onClick={() => persist({ nine: "front" })}>Front</Seg>
-              <Seg active={nine === "back"} onClick={() => persist({ nine: "back" })}>Back</Seg>
-            </div>
-          </div>
-        )}
-        <div style={{ marginLeft: "auto", fontSize: "12px", color: M }}>
-          Take <strong style={{ color: GOLD }}>{takesNeeded}</strong> of {nHoles} · Par {totalPar}
+        <div style={{ marginLeft: "auto", fontSize: "12px", color: M, textAlign: "right" }}>
+          <div>{NINES[game].label} · Par <strong style={{ color: CREAM }}>{totalPar}</strong></div>
+          <div style={{ fontSize: "11px" }}>The other nine is a separate game</div>
         </div>
       </div>
+
+      {/* Playing for — stakes banner */}
+      <StakesBanner stakes={stakes} setStakes={setStakes} leader={standings.find((s) => s.id === leaderId)} />
 
       {/* Player picker */}
       <div style={{ marginBottom: "14px" }}>
@@ -246,34 +244,148 @@ export default function SixiesScreen({ event, saveEvent, library }) {
         </div>
       ) : (
         <>
-          {/* Sixies status bars */}
-          <div style={{ marginBottom: "12px", display: "flex", flexDirection: "column", gap: "6px" }}>
+          {/* Hole navigation */}
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
+            <NavArrow disabled={activeK === 0} onClick={() => setActiveK((k) => Math.max(0, k - 1))}>‹</NavArrow>
+            <div style={{ flex: 1, textAlign: "center" }}>
+              <div style={{ fontFamily: FD, fontSize: "22px", fontWeight: 700, color: CREAM, lineHeight: 1.1 }}>Hole {absHole + 1}</div>
+              <div style={{ fontSize: "12px", color: M }}>Par {course.par[absHole]} · SI {course.si[absHole]}</div>
+            </div>
+            <NavArrow disabled={activeK === N_HOLES - 1} onClick={() => setActiveK((k) => Math.min(N_HOLES - 1, k + 1))}>›</NavArrow>
+          </div>
+
+          {/* Hole chips (jump + at-a-glance) */}
+          <div style={{ display: "flex", gap: "4px", marginBottom: "12px" }}>
+            {holeIdx.map((h, k) => {
+              const someScored = selPlayers.some((p) => grossOn(p.id, h) > 0);
+              const isActive = k === activeK;
+              return (
+                <button key={h} onClick={() => setActiveK(k)}
+                  style={{
+                    flex: 1, height: "30px", borderRadius: "6px", fontFamily: FB, fontSize: "12px", fontWeight: 700,
+                    cursor: "pointer", lineHeight: 1,
+                    border: isActive ? `2px solid ${G}` : `1px solid ${GOLD}33`,
+                    background: isActive ? G + "1f" : someScored ? "rgba(26,107,58,0.08)" : CARD,
+                    color: isActive ? G : someScored ? CREAM : M,
+                  }}>
+                  {h + 1}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Active hole entry card */}
+          <div style={{ background: CARD, border: `1px solid ${GOLD}33`, borderRadius: "14px", overflow: "hidden", marginBottom: "14px" }}>
+            {selPlayers.map((p, pRow) => {
+              const ci = playerIds.indexOf(p.id);
+              const dec = decisionsOf(p.id);
+              const chosen = dec[activeK];
+              const forced = sixiesForced(dec, activeK);
+              const eff = chosen !== null ? chosen : forced;
+              const strokes = strokesOn(p.id, absHole);
+              const gross = grossOn(p.id, absHole);
+              const pts = ptsOn(p.id, absHole);
+              const ptColor = pts === null ? M : pts >= 3 ? G : pts === 1 ? GOLD : pts === 0 ? M : R;
+              const adj = (delta) => {
+                const cur = gross || course.par[absHole];
+                const next = Math.max(1, cur + delta);
+                setScore(p.id, absHole, next);
+              };
+              return (
+                <div key={p.id} style={{
+                  padding: "12px 14px", display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap",
+                  borderBottom: pRow < selPlayers.length - 1 ? `1px solid ${GOLD}18` : "none",
+                  background: eff === false ? "rgba(0,0,0,0.02)" : "transparent",
+                }}>
+                  {/* Player + strokes */}
+                  <div style={{ minWidth: "104px", flex: "0 0 auto" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span style={{ width: "9px", height: "9px", borderRadius: "50%", background: COLORS[ci] }} />
+                      <span style={{ fontSize: "15px", fontWeight: 700, color: CREAM }}>{p.name}</span>
+                    </div>
+                    <div style={{ fontSize: "11px", color: M, marginTop: "2px", paddingLeft: "15px" }}>
+                      {strokes > 0 ? <span style={{ color: G, fontWeight: 700 }}>{"•".repeat(strokes)} +{strokes} stroke{strokes > 1 ? "s" : ""}</span> : "no stroke"}
+                    </div>
+                  </div>
+
+                  {/* Stepper */}
+                  <div style={{ display: "flex", alignItems: "center", flex: "0 0 auto" }}>
+                    <button onClick={() => adj(-1)} style={stepBtn("left")}>−</button>
+                    <div onClick={() => !gross && setScore(p.id, absHole, course.par[absHole])}
+                      style={{
+                        width: "58px", height: "54px", display: "flex", flexDirection: "column",
+                        alignItems: "center", justifyContent: "center", gap: "1px",
+                        border: gross ? `1px solid ${GOLD}44` : `2px dashed ${G}99`,
+                        background: gross ? "rgba(26,61,36,0.05)" : G + "14",
+                        cursor: gross ? "default" : "pointer",
+                      }}>
+                      <span style={{ fontSize: gross ? "22px" : "12px", fontWeight: 700, color: gross ? ptColor : G, lineHeight: 1 }}>
+                        {gross || "PAR"}
+                      </span>
+                      <span style={{ fontSize: "9px", color: gross ? M : G, lineHeight: 1 }}>
+                        {gross ? `net ${gross - strokes}` : `tap = ${course.par[absHole]}`}
+                      </span>
+                    </div>
+                    <button onClick={() => adj(+1)} style={stepBtn("right")}>+</button>
+                  </div>
+
+                  {/* Take / Pass */}
+                  <div style={{ flex: "1 1 auto", display: "flex", justifyContent: "flex-end", minWidth: "132px" }}>
+                    {forced !== null ? (
+                      <div style={{
+                        padding: "9px 14px", borderRadius: "9px", fontSize: "13px", fontWeight: 800, letterSpacing: "0.03em",
+                        border: `1.5px solid ${forced ? G : GOLD}`, background: (forced ? G : GOLD) + "18", color: forced ? G : "#8a6600",
+                        display: "flex", alignItems: "center", gap: "5px",
+                      }}>
+                        🔒 {forced ? "TAKE" : "PASS"} <span style={{ fontSize: "10px", fontWeight: 600, color: M }}>forced</span>
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", gap: "6px" }}>
+                        <button onClick={() => setTake(p.id, absHole, chosen === true ? null : true)} style={tpBtn(chosen === true, G)}>TAKE</button>
+                        <button onClick={() => setTake(p.id, absHole, chosen === false ? null : false)} style={tpBtn(chosen === false, GOLD)}>PASS</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Per-player progress toward 6 of 9 */}
+          <div style={{ marginBottom: "14px", display: "flex", flexDirection: "column", gap: "6px" }}>
             {selPlayers.map((p) => {
               const ci = playerIds.indexOf(p.id);
               const taken = sixiesTaken(p.id);
-              const passesLeft = (nHoles - takesNeeded) - sixiesPassed(p.id);
+              const passesLeft = PASSES_ALLOWED - sixiesPassed(p.id);
               const eff = effectiveTakes(p.id);
               const dec = decisionsOf(p.id);
               return (
-                <div key={p.id} style={{ background: CARD2, border: `1px solid ${GOLD}33`, borderRadius: "10px", padding: "10px 12px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                <div key={p.id} style={{ background: CARD2, border: `1px solid ${GOLD}33`, borderRadius: "10px", padding: "9px 12px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "7px" }}>
                     <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: COLORS[ci] }} />
                     <span style={{ fontSize: "13px", fontWeight: 600, color: CREAM }}>{p.name}</span>
-                    <span style={{ marginLeft: "auto", fontSize: "13px", color: GOLD, fontWeight: 700 }}>{taken}/{takesNeeded} taken</span>
+                    <span style={{ marginLeft: "auto", fontSize: "13px", color: GOLD, fontWeight: 700 }}>{taken}/{TAKES_NEEDED} taken</span>
                     <span style={{ fontSize: "12px", color: passesLeft === 0 ? R : M }}>{passesLeft} pass{passesLeft !== 1 ? "es" : ""} left</span>
                   </div>
                   <div style={{ display: "flex", gap: "3px" }}>
                     {holeIdx.map((h, k) => {
                       const e = eff[k];
-                      const isForced = dec[k] === null && sixiesForced(dec, k, nHoles, takesNeeded) !== null;
+                      const isForced = dec[k] === null && sixiesForced(dec, k) !== null;
                       let bg, label, col;
-                      if (e === true) { bg = G + "33"; label = "T"; col = G; }
-                      else if (e === false) { bg = GOLD + "33"; label = "P"; col = "#b87800"; }
-                      else { bg = "#e0e0e0"; label = String(h + 1); col = "#999"; }
+                      if (e === true) { bg = G + "26"; label = "T"; col = G; }
+                      else if (e === false) { bg = GOLD + "26"; label = "P"; col = "#8a6600"; }
+                      else { bg = "#e2e4df"; label = String(h + 1); col = M; }
                       return (
-                        <div key={h} style={{ flex: 1, height: "26px", borderRadius: "5px", background: bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "10px", fontWeight: 700, color: col, border: isForced ? `1px dashed ${e === true ? G : GOLD}` : "none", opacity: e === null ? 0.6 : 1 }}>
+                        <button key={h} onClick={() => setActiveK(k)}
+                          style={{
+                            flex: 1, height: "24px", borderRadius: "5px", background: bg, cursor: "pointer",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            fontSize: "10px", fontWeight: 700, color: col,
+                            border: k === activeK ? `2px solid ${CREAM}55` : isForced ? `1px dashed ${e === true ? G : GOLD}` : "1px solid transparent",
+                            opacity: e === null ? 0.7 : 1,
+                          }}>
                           {label}
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
@@ -282,24 +394,21 @@ export default function SixiesScreen({ event, saveEvent, library }) {
             })}
           </div>
 
-          {/* Scorecard */}
+          {/* Read-only overview scorecard */}
           <div style={{ background: CARD2, border: `1px solid ${GOLD}22`, borderRadius: "14px", overflow: "hidden", marginBottom: "14px" }}>
             <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: `${140 + nHoles * 46}px` }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: `${120 + N_HOLES * 40}px` }}>
                 <thead>
                   <tr style={{ background: "rgba(26,61,36,0.07)", borderBottom: `1px solid ${GOLD}33` }}>
-                    <td style={{ padding: "7px 10px", fontWeight: 700, color: M, fontSize: "12px", whiteSpace: "nowrap" }}>Player</td>
-                    {holeIdx.map((h) => <td key={h} style={{ padding: "7px 3px", textAlign: "center", fontWeight: 600, color: M, fontSize: "12px", minWidth: "44px" }}>{h + 1}</td>)}
-                    <td style={{ padding: "7px 8px", textAlign: "center", fontWeight: 700, color: CREAM, fontSize: "12px" }}>Stab · 6s</td>
+                    <td style={{ padding: "6px 10px", fontWeight: 700, color: M, fontSize: "12px", whiteSpace: "nowrap" }}>Hole</td>
+                    {holeIdx.map((h, k) => (
+                      <td key={h} onClick={() => setActiveK(k)} style={{ padding: "6px 3px", textAlign: "center", fontWeight: 700, color: k === activeK ? G : M, fontSize: "12px", minWidth: "36px", cursor: "pointer" }}>{h + 1}</td>
+                    ))}
+                    <td style={{ padding: "6px 8px", textAlign: "center", fontWeight: 700, color: GOLD, fontSize: "11px" }}>6s net</td>
                   </tr>
-                  <tr style={{ background: "rgba(26,61,36,0.03)", fontSize: "11px", color: M }}>
+                  <tr style={{ background: "rgba(26,61,36,0.03)", fontSize: "11px", color: M, borderBottom: `2px solid ${GOLD}33` }}>
                     <td style={{ padding: "3px 10px", fontWeight: 600 }}>Par</td>
                     {holeIdx.map((h) => <td key={h} style={{ padding: "3px 3px", textAlign: "center" }}>{course.par[h]}</td>)}
-                    <td style={{ padding: "3px 8px", textAlign: "center", fontWeight: 700 }}>{totalPar}</td>
-                  </tr>
-                  <tr style={{ borderBottom: `2px solid ${GOLD}33`, fontSize: "11px", color: M }}>
-                    <td style={{ padding: "3px 10px", fontWeight: 600 }}>SI</td>
-                    {holeIdx.map((h) => <td key={h} style={{ padding: "3px 3px", textAlign: "center" }}>{course.si[h]}</td>)}
                     <td />
                   </tr>
                 </thead>
@@ -307,59 +416,30 @@ export default function SixiesScreen({ event, saveEvent, library }) {
                   {selPlayers.map((p, pRow) => {
                     const ci = playerIds.indexOf(p.id);
                     const eff = effectiveTakes(p.id);
-                    const dec = decisionsOf(p.id);
                     return (
                       <tr key={p.id} style={{ borderBottom: pRow < selPlayers.length - 1 ? `1px solid ${GOLD}18` : "none" }}>
-                        <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                            <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: COLORS[ci] }} />
-                            <span style={{ fontSize: "13px", fontWeight: 600, color: CREAM }}>{p.name}</span>
-                          </div>
+                        <td style={{ padding: "7px 10px", whiteSpace: "nowrap" }}>
+                          <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: COLORS[ci], display: "inline-block", marginRight: "5px" }} />
+                          <span style={{ fontSize: "13px", fontWeight: 600, color: CREAM }}>{p.name}</span>
                         </td>
                         {holeIdx.map((h, k) => {
                           const gross = grossOn(p.id, h);
-                          const strokes = strokesOn(p.id, h);
-                          const pts = ptsOn(p.id, h);
-                          const cap = maxGross(course.par[h], strokes);
-                          const ptColor = pts === null ? M : pts >= 3 ? G : pts === 1 ? GOLD : pts === 0 ? M : R;
-                          const bg = gross ? (pts >= 3 ? "#e6f5ea" : pts === 1 ? "#fdf6e0" : pts === 0 ? "#fff" : R + "14") : "#fff";
-                          const bd = gross ? (pts >= 3 ? G : pts === 1 ? GOLD : pts === 0 ? "#aaa" : R) : "#ccc";
-                          const chosen = dec[k];
-                          const isForced = chosen === null && sixiesForced(dec, k, nHoles, takesNeeded) !== null;
-                          const e = eff[k];
+                          const taken = eff[k] === true;
+                          const passed = eff[k] === false;
                           return (
-                            <td key={h} style={{ padding: "4px 2px", textAlign: "center", verticalAlign: "top" }}>
-                              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", paddingTop: "2px" }}>
-                                {strokes > 0 && <span style={{ fontSize: "8px", color: G, fontWeight: 700, lineHeight: 1 }}>{"•".repeat(strokes)}</span>}
-                                <input
-                                  ref={(el) => (cellRefs.current[`${p.id}-${h}`] = el)}
-                                  type="number" min="1" max={cap} value={gross || ""} placeholder={String(course.par[h])} inputMode="numeric"
-                                  onChange={(e2) => { const v = parseInt(e2.target.value); setScore(p.id, h, isNaN(v) || v < 1 ? 0 : Math.min(cap, v)); }}
-                                  onKeyDown={(e2) => handleKey(e2, pRow, k)}
-                                  onFocus={(e2) => e2.target.select()}
-                                  style={{ width: "42px", height: "42px", textAlign: "center", background: bg, border: `2px solid ${bd}`, borderRadius: "8px", color: gross ? ptColor : "#aaa", fontFamily: FB, fontSize: "16px", fontWeight: 700, outline: "none", MozAppearance: "textfield", appearance: "textfield", opacity: e === false ? 0.35 : 1, touchAction: "manipulation" }}
-                                />
-                                {gross > 0 && <span style={{ fontSize: "11px", color: M, lineHeight: 1 }}>{gross - strokes}</span>}
-                                {isForced ? (
-                                  <span style={{ fontSize: "9px", fontWeight: 800, color: e === true ? G : "#b87800", opacity: 0.6, lineHeight: 1, marginTop: "1px" }}>{e === true ? "TAKE" : "PASS"}</span>
-                                ) : (
-                                  <div style={{ display: "flex", gap: "2px", marginTop: "1px" }}>
-                                    <button onPointerDown={(e2) => { e2.preventDefault(); setTake(p.id, h, chosen === true ? null : true); }}
-                                      style={{ width: "20px", height: "20px", padding: 0, fontSize: "9px", fontWeight: 800, borderRadius: "4px", cursor: "pointer", lineHeight: 1, border: `1.5px solid ${chosen === true ? G : "#ccc"}`, background: chosen === true ? G + "22" : "transparent", color: chosen === true ? G : "#bbb" }}>T</button>
-                                    <button onPointerDown={(e2) => { e2.preventDefault(); setTake(p.id, h, chosen === false ? null : false); }}
-                                      style={{ width: "20px", height: "20px", padding: 0, fontSize: "9px", fontWeight: 800, borderRadius: "4px", cursor: "pointer", lineHeight: 1, border: `1.5px solid ${chosen === false ? "#e6a817" : "#ccc"}`, background: chosen === false ? "#e6a81722" : "transparent", color: chosen === false ? "#e6a817" : "#bbb" }}>P</button>
-                                  </div>
-                                )}
+                            <td key={h} onClick={() => setActiveK(k)} style={{
+                              padding: "6px 3px", textAlign: "center", cursor: "pointer",
+                              background: taken ? G + "12" : passed ? "rgba(0,0,0,0.02)" : "transparent",
+                            }}>
+                              <div style={{ fontSize: "14px", fontWeight: 700, color: gross ? (taken ? CREAM : M) : "#c4c8c0", opacity: passed ? 0.5 : 1 }}>
+                                {gross || "·"}
                               </div>
+                              {gross > 0 && <div style={{ fontSize: "9px", color: taken ? G : M, opacity: passed ? 0.5 : 1 }}>{netOn(p.id, h)}</div>}
                             </td>
                           );
                         })}
-                        <td style={{ padding: "6px 8px", textAlign: "center", whiteSpace: "nowrap", verticalAlign: "middle" }}>
-                          <div style={{ fontSize: "18px", fontWeight: 700, color: G, lineHeight: 1.1 }}>{stabTotal(p.id) || "—"}</div>
-                          <div style={{ fontSize: "16px", fontWeight: 700, color: GOLD, marginTop: "3px", padding: "2px 6px", background: GOLD + "18", borderRadius: "6px", display: "inline-block" }}>
-                            {sixiesTaken(p.id) > 0 ? sixiesTotal(p.id) : "—"}<span style={{ fontSize: "9px", fontWeight: 400, color: M, marginLeft: "2px" }}>6s</span>
-                          </div>
-                          {grossTotal(p.id) > 0 && <div style={{ fontSize: "11px", color: M, marginTop: "2px" }}>{grossTotal(p.id)} gross</div>}
+                        <td style={{ padding: "6px 8px", textAlign: "center", fontWeight: 800, color: GOLD, fontSize: "16px", whiteSpace: "nowrap" }}>
+                          {sixiesTaken(p.id) > 0 ? sixiesTotal(p.id) : "—"}
                         </td>
                       </tr>
                     );
@@ -369,11 +449,29 @@ export default function SixiesScreen({ event, saveEvent, library }) {
             </div>
           </div>
 
-          {/* Leaderboards */}
+          {/* Standings */}
           {anyScores && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "12px" }}>
-              <Board title="Stableford" accent={G} rows={stabResults.map((r) => ({ ...r, value: r.stab, sub: null }))} highColor={G} />
-              <Board title="⬡ Sixies (net)" accent={GOLD} rows={sixiesResults.map((r) => ({ ...r, value: r.taken > 0 ? r.total : "—", sub: `${r.taken}/${takesNeeded}` }))} highColor={GOLD} winnerFirst />
+            <div style={{ background: CARD2, border: `1px solid ${GOLD}44`, borderRadius: "14px", padding: "14px" }}>
+              <div style={{ fontSize: "11px", letterSpacing: "0.1em", textTransform: "uppercase", color: GOLD, marginBottom: "8px", fontWeight: 700 }}>
+                ⬡ {NINES[game].label} Standings <span style={{ color: M, fontWeight: 400 }}>· lowest net wins</span>
+              </div>
+              {standings.map((r, rank) => (
+                <div key={r.id} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "9px 0", borderBottom: rank < standings.length - 1 ? `1px solid ${GOLD}18` : "none" }}>
+                  <span style={{ fontSize: "14px", fontWeight: 700, color: rank === 0 ? GOLD : M, minWidth: "18px", textAlign: "center" }}>{rank + 1}</span>
+                  <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: r.color }} />
+                  <span style={{ flex: 1, fontSize: "15px", fontWeight: 600, color: CREAM }}>
+                    {r.name}
+                    {rank === 0 && <span style={{ marginLeft: "8px", fontSize: "11px", fontWeight: 700, color: GOLD }}>◆ leading</span>}
+                  </span>
+                  <span style={{ fontSize: "12px", color: r.complete ? G : M }}>{r.taken}/{TAKES_NEEDED}{r.complete ? " ✓" : ""}</span>
+                  <span style={{ fontSize: "22px", fontWeight: 700, color: rank === 0 ? GOLD : CREAM, minWidth: "40px", textAlign: "right" }}>
+                    {r.taken > 0 ? r.total : "—"}
+                  </span>
+                </div>
+              ))}
+              <div style={{ fontSize: "11px", color: M, marginTop: "8px" }}>
+                Net = gross − strokes on your {TAKES_NEEDED} taken holes. Stableford (info): {standings.map((r) => `${r.name} ${r.stab}`).join(" · ")}
+              </div>
             </div>
           )}
         </>
@@ -385,6 +483,19 @@ export default function SixiesScreen({ event, saveEvent, library }) {
 // ── Small presentational helpers ───────────────────────────────────────────────
 const labelStyle = { fontSize: "11px", color: M, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: "4px" };
 const selectStyle = { background: "#fff", border: `1px solid ${GOLD}44`, borderRadius: "7px", color: CREAM, fontFamily: FB, fontSize: "14px", padding: "7px 9px", cursor: "pointer", outline: "none" };
+const stepBtn = (side) => ({
+  width: "40px", height: "54px", border: `1px solid ${GOLD}44`,
+  borderRadius: side === "left" ? "9px 0 0 9px" : "0 9px 9px 0",
+  [side === "left" ? "borderRight" : "borderLeft"]: "none",
+  background: "rgba(26,61,36,0.06)", color: CREAM, fontSize: "22px", cursor: "pointer",
+  display: "flex", alignItems: "center", justifyContent: "center", userSelect: "none", touchAction: "manipulation",
+});
+const tpBtn = (active, color) => ({
+  padding: "9px 16px", borderRadius: "9px", fontFamily: FB, fontSize: "13px", fontWeight: 800, letterSpacing: "0.03em", cursor: "pointer",
+  border: `1.5px solid ${active ? color : "#c9ccc6"}`,
+  background: active ? color + "22" : "transparent",
+  color: active ? (color === GOLD ? "#8a6600" : color) : "#9aa09a",
+});
 
 function Seg({ active, onClick, children }) {
   return (
@@ -395,20 +506,64 @@ function Seg({ active, onClick, children }) {
   );
 }
 
-function Board({ title, accent, rows, highColor, winnerFirst }) {
+function NavArrow({ disabled, onClick, children }) {
   return (
-    <div style={{ background: CARD2, border: `1px solid ${accent}44`, borderRadius: "14px", padding: "14px" }}>
-      <div style={{ fontSize: "11px", letterSpacing: "0.1em", textTransform: "uppercase", color: accent, marginBottom: "8px", fontWeight: 700 }}>{title}</div>
-      {rows.map((r, rank) => (
-        <div key={r.id} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "9px 0", borderBottom: rank < rows.length - 1 ? `1px solid ${GOLD}18` : "none" }}>
-          <span style={{ fontSize: "14px", fontWeight: 700, color: rank === 0 ? accent : M, minWidth: "18px", textAlign: "center" }}>{rank + 1}</span>
-          <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: r.color }} />
-          <span style={{ flex: 1, fontSize: "15px", fontWeight: 600, color: CREAM }}>{r.name}</span>
-          {r.sub && <span style={{ fontSize: "12px", color: M }}>{r.sub}</span>}
-          <span style={{ fontSize: "22px", fontWeight: 700, color: rank === 0 ? highColor : CREAM, minWidth: "34px", textAlign: "right" }}>{r.value}</span>
+    <button onClick={onClick} disabled={disabled}
+      style={{
+        width: "44px", height: "44px", borderRadius: "10px", border: `1px solid ${GOLD}33`,
+        background: disabled ? "transparent" : CARD, color: CREAM, fontSize: "24px", lineHeight: 1,
+        cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.3 : 1, flexShrink: 0,
+      }}>
+      {children}
+    </button>
+  );
+}
+
+function StakesBanner({ stakes, setStakes, leader }) {
+  const [open, setOpen] = useState(false);
+  const amount = stakes.amount;
+  const has = amount !== "" && amount != null && Number(amount) > 0;
+  const unitLabel = stakes.unit === "point" ? "per point" : "per game";
+  return (
+    <div style={{ background: GOLD + "12", border: `1px solid ${GOLD}55`, borderRadius: "12px", padding: "11px 14px", marginBottom: "12px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+        <span style={{ fontSize: "11px", letterSpacing: "0.08em", textTransform: "uppercase", color: GOLD, fontWeight: 700 }}>Playing for</span>
+        <span style={{ fontSize: "17px", fontWeight: 800, color: CREAM }}>
+          {has ? `$${amount} ${unitLabel}` : "—"}
+        </span>
+        {stakes.note && <span style={{ fontSize: "13px", color: M }}>· {stakes.note}</span>}
+        {has && leader && (
+          <span style={{ marginLeft: "auto", fontSize: "13px", fontWeight: 700, color: GOLD }}>
+            {leader.name} leading
+          </span>
+        )}
+        <button onClick={() => setOpen((o) => !o)}
+          style={{ marginLeft: has && leader ? "10px" : "auto", padding: "5px 11px", borderRadius: "7px", border: `1px solid ${GOLD}44`, background: "transparent", color: GOLD, fontFamily: FB, fontSize: "12px", fontWeight: 600, cursor: "pointer" }}>
+          {open ? "Done" : has ? "Edit" : "Set stakes"}
+        </button>
+      </div>
+      {open && (
+        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "flex-end", marginTop: "10px" }}>
+          <div>
+            <div style={labelStyle}>Amount ($)</div>
+            <input type="number" min="0" inputMode="decimal" value={amount}
+              onChange={(e) => setStakes({ amount: e.target.value })} placeholder="e.g. 5"
+              style={{ width: "90px", padding: "8px 10px", borderRadius: "7px", border: `1px solid ${GOLD}44`, background: "#fff", color: CREAM, fontFamily: FB, fontSize: "14px", outline: "none" }} />
+          </div>
+          <div>
+            <div style={labelStyle}>Per</div>
+            <div style={{ display: "flex", gap: "4px" }}>
+              <Seg active={stakes.unit !== "point"} onClick={() => setStakes({ unit: "game" })}>Game</Seg>
+              <Seg active={stakes.unit === "point"} onClick={() => setStakes({ unit: "point" })}>Point</Seg>
+            </div>
+          </div>
+          <div style={{ flex: 1, minWidth: "140px" }}>
+            <div style={labelStyle}>Note (optional)</div>
+            <input value={stakes.note} onChange={(e) => setStakes({ note: e.target.value })} placeholder="e.g. winner takes all, auto-press…"
+              style={{ width: "100%", padding: "8px 10px", borderRadius: "7px", border: `1px solid ${GOLD}44`, background: "#fff", color: CREAM, fontFamily: FB, fontSize: "14px", outline: "none", boxSizing: "border-box" }} />
+          </div>
         </div>
-      ))}
-      {winnerFirst && <div style={{ fontSize: "10px", color: M, marginTop: "6px" }}>Lowest net wins</div>}
+      )}
     </div>
   );
 }
