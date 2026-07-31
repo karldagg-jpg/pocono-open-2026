@@ -3,6 +3,10 @@
 /* Scrollable tables */
 .scorecard-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
+/* Swipeable table with no visible scrollbar (avoids a stray grey scroll line) */
+.no-scrollbar { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; height: 0; }
+
 /* Round tab buttons */
 .round-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
 .round-tab {

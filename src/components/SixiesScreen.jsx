@@ -454,7 +454,7 @@ export default function SixiesScreen({ event, saveEvent, library }) {
 
           {/* Read-only overview scorecard */}
           <div style={{ background: CARD2, border: `1px solid ${GOLD}22`, borderRadius: "14px", overflow: "hidden", marginBottom: "14px" }}>
-            <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+            <div className="no-scrollbar">
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: `${180 + N_HOLES * 40}px` }}>
                 <thead>
                   <tr style={{ background: "rgba(26,61,36,0.07)", borderBottom: `1px solid ${GOLD}33` }}>
@@ -485,11 +485,19 @@ export default function SixiesScreen({ event, saveEvent, library }) {
                           const gross = grossOn(p.id, h);
                           const taken = eff[k] === true;
                           const passed = eff[k] === false;
+                          const strokes = strokesOn(p.id, h);
                           return (
                             <td key={h} onClick={() => setActiveK(k)} style={{
-                              padding: "6px 3px", textAlign: "center", cursor: "pointer",
+                              padding: "6px 3px", textAlign: "center", cursor: "pointer", position: "relative",
                               background: taken ? G + "12" : passed ? "rgba(0,0,0,0.02)" : "transparent",
                             }}>
+                              {strokes > 0 && (
+                                <span style={{ position: "absolute", top: "3px", left: "3px", display: "flex", gap: "1px" }}>
+                                  {Array.from({ length: strokes }, (_, i) => (
+                                    <span key={i} style={{ width: "4px", height: "4px", borderRadius: "50%", background: G }} />
+                                  ))}
+                                </span>
+                              )}
                               <div style={{ fontSize: "14px", fontWeight: 700, color: gross ? (taken ? CREAM : M) : "#c4c8c0", opacity: passed ? 0.5 : 1 }}>
                                 {gross || "·"}
                               </div>
@@ -508,6 +516,10 @@ export default function SixiesScreen({ event, saveEvent, library }) {
                   })}
                 </tbody>
               </table>
+            </div>
+            <div style={{ padding: "8px 12px", borderTop: `1px solid ${GOLD}18`, fontSize: "11px", color: M, display: "flex", alignItems: "center", gap: "5px" }}>
+              <span style={{ width: "4px", height: "4px", borderRadius: "50%", background: G, display: "inline-block" }} />
+              <span>= a handicap stroke on that hole · swipe to see all holes</span>
             </div>
           </div>
 
