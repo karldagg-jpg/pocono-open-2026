@@ -60,15 +60,17 @@ export default function SixiesScreen({ event, saveEvent, library }) {
   const scores = sx.scores || {};
   const takes = sx.takes || {};
   const stakes = sx.stakes || { amount: "", unit: "game", note: "" };
+  const junk = sx.junk || { birdie: 1, eagle: 5 }; // gross birdie/eagle side bet
   const course = courseId != null ? courses[courseId] : null;
 
   const holeIdx = NINES[game].holes;
   const [activeK, setActiveK] = useState(0); // position 0..8 within the current nine
 
   const persist = (partial) => {
-    const next = { courseId, game, playerIds, scores, takes, stakes, ...partial };
+    const next = { courseId, game, playerIds, scores, takes, stakes, junk, ...partial };
     saveEvent({ ...event, sixies: next }, { sixies: next });
   };
+  const setJunk = (partial) => persist({ junk: { ...junk, ...partial } });
 
   const siList = useMemo(() => holeIdx.map((h) => course?.si?.[h] ?? 0), [holeIdx, course]);
   const totalPar = useMemo(() => holeIdx.reduce((s, h) => s + (course?.par?.[h] || 0), 0), [holeIdx, course]);
@@ -181,6 +183,37 @@ export default function SixiesScreen({ event, saveEvent, library }) {
     return nets
       .map((n) => ({ ...n, isWinner: n.net === min, win: n.net === min ? share - ante : -ante }))
       .sort((a, b) => b.win - a.win);
+  })();
+
+  // ── Birdies & eagles (gross) — each scorer collects from every other player.
+  // Matches the main app's pool: birdie / eagle editable, hole-in-one $10.
+  const junkRates = { birdie: Number(junk.birdie) || 0, eagle: Number(junk.eagle) || 0, hio: 10 };
+  const junkResult = (() => {
+    const rows = selPlayers.map((p) => ({
+      id: p.id, name: p.name, color: COLORS[playerIds.indexOf(p.id)],
+      birdie: 0, eagle: 0, hio: 0, earned: 0, owed: 0,
+    }));
+    const byId = Object.fromEntries(rows.map((r) => [r.id, r]));
+    const events = [];
+    for (const h of holeIdx) {
+      for (const p of selPlayers) {
+        const g = grossOn(p.id, h);
+        if (!g || !course) continue;
+        const toPar = g - course.par[h];
+        let type, rate;
+        if (g === 1) { type = "hio"; rate = junkRates.hio; }
+        else if (toPar <= -2) { type = "eagle"; rate = junkRates.eagle; }
+        else if (toPar === -1) { type = "birdie"; rate = junkRates.birdie; }
+        else continue;
+        byId[p.id][type] += 1;
+        const others = selPlayers.filter((o) => o.id !== p.id);
+        byId[p.id].earned += rate * others.length;
+        others.forEach((o) => { byId[o.id].owed += rate; });
+        events.push({ hole: h, name: p.name, color: byId[p.id].color, type, gross: g });
+      }
+    }
+    rows.forEach((r) => { r.net = r.earned - r.owed; });
+    return { rows: rows.sort((a, b) => b.net - a.net), events, any: events.length > 0 };
   })();
 
   // ── Empty states ────────────────────────────────────────────────────────────
@@ -547,6 +580,11 @@ export default function SixiesScreen({ event, saveEvent, library }) {
               )}
             </div>
           )}
+
+          {/* Birdies & eagles (gross side bet) */}
+          {selPlayers.length >= 2 && (
+            <JunkCard junk={junk} setJunk={setJunk} result={junkResult} />
+          )}
         </>
       )}
     </div>
@@ -576,6 +614,62 @@ function Seg({ active, onClick, children }) {
       style={{ padding: "7px 12px", borderRadius: "7px", fontFamily: FB, fontSize: "13px", cursor: "pointer", fontWeight: active ? 700 : 400, border: active ? `2px solid ${GOLD}` : `1px solid ${GOLD}33`, background: active ? GOLD + "1f" : "transparent", color: active ? CREAM : M }}>
       {children}
     </button>
+  );
+}
+
+function JunkCard({ junk, setJunk, result }) {
+  const [open, setOpen] = useState(false);
+  const money = (n) => (n > 0 ? `+$${n}` : n < 0 ? `−$${Math.abs(n)}` : "$0");
+  return (
+    <div style={{ background: "#3f7cc00d", border: `1px solid #3f7cc044`, borderRadius: "14px", padding: "14px", marginTop: "12px" }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: "8px", flexWrap: "wrap", marginBottom: "8px" }}>
+        <span style={{ fontSize: "11px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#2e5f96", fontWeight: 700 }}>🐦 Birdies &amp; Eagles</span>
+        <span style={{ fontSize: "12px", color: M }}>gross · birdie ${junk.birdie || 0} · eagle ${junk.eagle || 0} · HIO $10 · from each player</span>
+        <button onClick={() => setOpen((o) => !o)}
+          style={{ marginLeft: "auto", padding: "5px 11px", borderRadius: "7px", border: `1px solid #3f7cc055`, background: "transparent", color: "#2e5f96", fontFamily: FB, fontSize: "12px", fontWeight: 600, cursor: "pointer" }}>
+          {open ? "Done" : "Rates"}
+        </button>
+      </div>
+
+      {open && (
+        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "flex-end", marginBottom: "12px" }}>
+          <div>
+            <div style={labelStyle}>Birdie ($)</div>
+            <input type="number" min="0" inputMode="decimal" value={junk.birdie ?? ""}
+              onChange={(e) => setJunk({ birdie: e.target.value })}
+              style={{ width: "80px", padding: "8px 10px", borderRadius: "7px", border: `1px solid #3f7cc055`, background: "#fff", color: CREAM, fontFamily: FB, fontSize: "14px", outline: "none" }} />
+          </div>
+          <div>
+            <div style={labelStyle}>Eagle ($)</div>
+            <input type="number" min="0" inputMode="decimal" value={junk.eagle ?? ""}
+              onChange={(e) => setJunk({ eagle: e.target.value })}
+              style={{ width: "80px", padding: "8px 10px", borderRadius: "7px", border: `1px solid #3f7cc055`, background: "#fff", color: CREAM, fontFamily: FB, fontSize: "14px", outline: "none" }} />
+          </div>
+          <span style={{ fontSize: "11px", color: M }}>Hole-in-one pays $10.</span>
+        </div>
+      )}
+
+      {result.any ? (
+        result.rows.map((r) => {
+          const tags = [];
+          if (r.birdie) tags.push(`${r.birdie} birdie${r.birdie > 1 ? "s" : ""}`);
+          if (r.eagle) tags.push(`${r.eagle} eagle${r.eagle > 1 ? "s" : ""}`);
+          if (r.hio) tags.push(`${r.hio} HIO`);
+          return (
+            <div key={r.id} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 0", borderBottom: `1px solid #3f7cc018` }}>
+              <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: r.color }} />
+              <span style={{ flex: 1, fontSize: "15px", fontWeight: 600, color: CREAM }}>
+                {r.name}
+                {tags.length > 0 && <span style={{ marginLeft: "8px", fontSize: "12px", color: M, fontWeight: 400 }}>{tags.join(" · ")}</span>}
+              </span>
+              <span style={{ fontSize: "18px", fontWeight: 800, color: r.net > 0 ? G : r.net < 0 ? R : M, minWidth: "56px", textAlign: "right" }}>{money(r.net)}</span>
+            </div>
+          );
+        })
+      ) : (
+        <div style={{ fontSize: "13px", color: M }}>No gross birdies or eagles yet this nine.</div>
+      )}
+    </div>
   );
 }
 
