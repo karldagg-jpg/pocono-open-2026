@@ -28,14 +28,16 @@ const N_HOLES = 9;
 const TAKES_NEEDED = 6;
 const PASSES_ALLOWED = N_HOLES - TAKES_NEEDED; // 3
 
-// Forcing is based only on decisions actually made — never on hole position.
-// (A position rule would pre-mark the tail of the round as "forced take" before
-// you've played a hole, which is wrong: nothing is decided until you decide it.)
+// Forcing is based on the GLOBAL count of decisions made across the nine — not
+// on hole position and not on a prefix. That way it holds no matter what order
+// holes are decided in: once 6 are taken every other hole must pass, and once 3
+// are passed every other hole must take. Returns for an undecided hole k:
+//   true = forced take, false = forced pass, null = free choice.
 function sixiesForced(decisions, k) {
-  const takesUsed = decisions.slice(0, k).filter((x) => x === true).length;
-  const passesUsed = decisions.slice(0, k).filter((x) => x === false).length;
-  if (takesUsed >= TAKES_NEEDED) return false;   // already taken 6 → rest pass
-  if (passesUsed >= PASSES_ALLOWED) return true; // already passed 3 → rest take
+  const takes = decisions.filter((x, i) => i !== k && x === true).length;
+  const passes = decisions.filter((x, i) => i !== k && x === false).length;
+  if (takes >= TAKES_NEEDED) return false;   // 6 already taken → this hole must pass
+  if (passes >= PASSES_ALLOWED) return true; // 3 already passed → this hole must take
   return null;
 }
 
@@ -136,7 +138,8 @@ export default function SixiesScreen({ event, saveEvent, library }) {
   const isBanked = (pid, k) => effectiveTakes(pid)[k] === true && grossOn(pid, holeIdx[k]) > 0;
   const sixiesTotal = (pid) => holeIdx.reduce((s, h, k) => (isBanked(pid, k) ? s + (grossOn(pid, h) - strokesOn(pid, h)) : s), 0);
   const sixiesTaken = (pid) => holeIdx.reduce((n, h, k) => (isBanked(pid, k) ? n + 1 : n), 0);
-  const sixiesPassed = (pid) => decisionsOf(pid).filter((x) => x === false).length;
+  // Effective passes = holes passed by choice OR forced to pass (once 6 are taken).
+  const sixiesPassed = (pid) => effectiveTakes(pid).filter((x) => x === false).length;
   const sixiesComplete = (pid) => sixiesTaken(pid) === TAKES_NEEDED;
 
   const anyScores = selPlayers.some((p) => holeIdx.some((h) => grossOn(p.id, h) > 0));
