@@ -161,8 +161,9 @@ function LostBallTimer() {
   );
 }
 
-export default function ScoringScreen({ event, saveEvent }) {
-  const { players = [], courses = {}, rounds = {}, pairings = {}, games = {} } = event;
+export default function ScoringScreen({ event, saveEvent, library }) {
+  const { players = [], courses: eventCourses = {}, rounds = {}, pairings = {}, games = {} } = event;
+  const courses = { ...eventCourses, ...library };
   const [activeRound, setActiveRound] = useState(1);
   const [activeGroup, setActiveGroup] = useState(0);
   const [activeHole, setActiveHole] = useState(0); // 0-indexed
@@ -371,13 +372,11 @@ export default function ScoringScreen({ event, saveEvent }) {
       {!round.courseId && (
         <div style={{ background: CARD, border: `1px solid ${GO}44`, borderRadius: "10px", padding: "12px 14px", marginBottom: "14px" }}>
           <div style={{ fontSize: "12px", color: GO, marginBottom: "8px" }}>Select course for Round {activeRound}:</div>
-          <div style={{ display: "flex", gap: "8px" }}>
-            {[1, 2, 3].map((cId) => (
-              courses[cId] && (
-                <button key={cId} onClick={() => setRoundCourseHandler(cId)} className="btn" style={{ padding: "7px 14px" }}>
-                  {courses[cId].name || `Course ${cId}`}
-                </button>
-              )
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            {Object.entries(courses).map(([cId, c]) => (
+              <button key={cId} onClick={() => setRoundCourseHandler(cId)} className="btn" style={{ padding: "7px 14px" }}>
+                {c.name || `Course ${cId}`}
+              </button>
             ))}
           </div>
         </div>

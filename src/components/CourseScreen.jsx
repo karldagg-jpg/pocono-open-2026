@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { CARD2, CREAM, G, GOLD, M, R, FD, FB } from "../constants/theme";
-import { subscribeLibrary, saveLibrary } from "../firebase/client";
+import { saveLibrary } from "../firebase/client";
 
 const DEFAULT_PAR = [4,4,3,5,4,3,4,5,4, 4,4,3,5,4,3,4,5,4];
 const DEFAULT_SI  = [1,5,13,3,9,17,7,11,15, 2,6,14,4,10,18,8,12,16];
@@ -9,31 +9,26 @@ const ROUNDS = [1, 2, 3];
 const newCourseId = () => `c_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 const parTotal = (c) => (c.par || DEFAULT_PAR).reduce((a, b) => a + b, 0);
 
-export default function CourseScreen({ event, saveEvent }) {
-  const [library, setLibrary] = useState(null); // null = still loading
+// `library` is the shared course catalog (owned by App, live via subscribeLibrary) —
+// the single source of truth for course data across every screen. This screen only
+// edits it and assigns a courseId to each round; it no longer snapshots course
+// content into the event doc.
+export default function CourseScreen({ event, saveEvent, library }) {
   const [editingId, setEditingId] = useState(null); // course id being edited, or "__new__"
   const [draft, setDraft] = useState(null);
 
-  const courses = event.courses || {};
   const rounds = event.rounds || {};
 
-  // Subscribe to the shared library.
-  useEffect(() => subscribeLibrary((lib) => setLibrary(lib || {})), []);
-
   // One-time migration: if the library is empty but this event already has
-  // courses embedded (the old model), seed the library from them.
+  // courses embedded (the old, pre-library model), seed the library from them.
   useEffect(() => {
-    if (library === null) return;
-    if (Object.keys(library).length === 0 && Object.keys(courses).length > 0) {
+    const legacyCourses = event.courses || {};
+    if (Object.keys(library).length === 0 && Object.keys(legacyCourses).length > 0) {
       const seeded = {};
-      for (const [id, c] of Object.entries(courses)) if (c?.name || c?.par) seeded[id] = c;
-      if (Object.keys(seeded).length) { setLibrary(seeded); saveLibrary(seeded); }
+      for (const [id, c] of Object.entries(legacyCourses)) if (c?.name || c?.par) seeded[id] = c;
+      if (Object.keys(seeded).length) saveLibrary(seeded);
     }
-  }, [library, courses]);
-
-  if (library === null) {
-    return <div style={{ maxWidth: "700px", margin: "0 auto", padding: "40px 14px", color: M, textAlign: "center" }}>Loading course library…</div>;
-  }
+  }, [library, event.courses]);
 
   const libList = Object.entries(library).map(([id, c]) => ({ id, ...c }));
 
@@ -53,15 +48,7 @@ export default function CourseScreen({ event, saveEvent }) {
     const tp = parTotal(c);
     const clean = { name: c.name || "Unnamed course", slope: Number(c.slope) || 113, rating: Number(c.rating) || tp, par: c.par || [...DEFAULT_PAR], si: c.si || [...DEFAULT_SI] };
     const id = editingId === "__new__" ? newCourseId() : editingId;
-    const nextLib = { ...library, [id]: clean };
-    setLibrary(nextLib);
-    saveLibrary(nextLib);
-    // Keep any rounds already using this course in sync with the edit.
-    const usedInEvent = Object.values(rounds).some((r) => r?.courseId === id);
-    if (usedInEvent) {
-      const nextCourses = { ...courses, [id]: clean };
-      saveEvent({ ...event, courses: nextCourses }, { courses: nextCourses });
-    }
+    saveLibrary({ ...library, [id]: clean });
     cancelEdit();
   }
 
@@ -72,7 +59,6 @@ export default function CourseScreen({ event, saveEvent }) {
       : `Delete "${library[id]?.name}" from the library?`;
     if (!window.confirm(msg)) return;
     const nextLib = { ...library }; delete nextLib[id];
-    setLibrary(nextLib);
     saveLibrary(nextLib);
     if (usedRounds.length) {
       const nextRounds = { ...rounds };
@@ -81,11 +67,11 @@ export default function CourseScreen({ event, saveEvent }) {
     }
   }
 
-  // ── Assign a library course to a round (snapshots it into the event) ─────────
+  // ── Assign a library course to a round (just a reference — the library is the
+  //    single source of truth for its content) ─────────────────────────────────
   function assignRound(r, courseId) {
     const nextRounds = { ...rounds, [r]: { ...(rounds[r] || {}), courseId: courseId || null } };
     const patch = { rounds: nextRounds };
-    if (courseId && library[courseId]) patch.courses = { ...courses, [courseId]: library[courseId] };
     saveEvent({ ...event, ...patch }, patch);
   }
 
@@ -109,7 +95,7 @@ export default function CourseScreen({ event, saveEvent }) {
         <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px" }}>
           {ROUNDS.map((r) => {
             const cid = rounds[r]?.courseId;
-            const c = cid ? library[cid] || courses[cid] : null;
+            const c = cid ? library[cid] || event.courses?.[cid] : null;
             return (
               <div key={r} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                 <span style={{ fontSize: "13px", fontWeight: 700, color: CREAM, minWidth: "62px" }}>Round {r}</span>

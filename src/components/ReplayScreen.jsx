@@ -154,8 +154,9 @@ function RaceChart({ series, par }) {
   );
 }
 
-export default function ReplayScreen({ event }) {
-  const { players = [], courses = {}, rounds = {} } = event;
+export default function ReplayScreen({ event, library }) {
+  const { players = [], courses: eventCourses = {}, rounds = {} } = event;
+  const courses = { ...eventCourses, ...library };
 
   const [activeRound, setActiveRound] = useState(() => {
     for (let r = 3; r >= 1; r--) {

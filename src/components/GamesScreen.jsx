@@ -4,8 +4,9 @@ import { CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
 const GAME_KEYS = ["scatts", "lowNet", "ctp", "hio"];
 const GAME_LABELS = { scatts: "Scats / Skins", lowNet: "Low Net Tournament", ctp: "Closest to Pin", hio: "Hole in One Bonus" };
 
-export default function GamesScreen({ event, saveEvent }) {
-  const { players = [], courses = {}, games: savedGames = {} } = event;
+export default function GamesScreen({ event, saveEvent, library }) {
+  const { players = [], games: savedGames = {} } = event;
+  const courses = { ...(event.courses || {}), ...library };
 
   const [weekendBuyIn, setWeekendBuyIn] = useState(event.weekendBuyIn || 0);
   const [useIndexHcp, setUseIndexHcp]   = useState(savedGames.useIndexHcp !== false);

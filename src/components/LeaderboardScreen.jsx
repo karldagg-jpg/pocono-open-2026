@@ -1,9 +1,10 @@
 import { CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
 import { calcLeaderboard, playerCourseHcp, totalPar } from "../lib/golfLogic";
 
-export default function LeaderboardScreen({ event }) {
-  const { courses = {}, rounds = {} } = event;
-  const board = calcLeaderboard(event);
+export default function LeaderboardScreen({ event, library }) {
+  const { rounds = {} } = event;
+  const courses = { ...(event.courses || {}), ...library };
+  const board = calcLeaderboard({ ...event, courses });
 
   function coursePar(rNum) {
     const round = rounds[rNum];

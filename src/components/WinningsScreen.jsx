@@ -1,9 +1,11 @@
 import { CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
 import { calcWinnings, calcLeaderboard, calcScatts, calcLowNet, calcCTP, calcBirdiePool, calcHIOBonus, gamblingPlayers, birdiePoolPlayers } from "../lib/golfLogic";
 
-export default function WinningsScreen({ event }) {
-  const { players = [], courses = {}, rounds = {}, buyIn = 100, weekendBuyIn, games = {} } = event;
-  const winnings = calcWinnings(event);
+export default function WinningsScreen({ event, library }) {
+  const { players = [], rounds = {}, buyIn = 100, weekendBuyIn, games = {} } = event;
+  const courses = { ...(event.courses || {}), ...library };
+  const eventForCalc = { ...event, courses };
+  const winnings = calcWinnings(eventForCalc);
 
   const potByRound = games.scatts?.potByRound;
   const scattsByRound = [1, 2, 3].map((rNum) => {
@@ -22,15 +24,15 @@ export default function WinningsScreen({ event }) {
     return calcScatts(round.scores || {}, course, players, roundBuyIn);
   });
 
-  const hioResult = (games.hio?.enabled && games.hio?.pot) ? calcHIOBonus(event) : null;
+  const hioResult = (games.hio?.enabled && games.hio?.pot) ? calcHIOBonus(eventForCalc) : null;
 
-  const { payouts: lnPayouts, positions: lnPositions, pot: lnPot, pcts: lnPcts, prizes: lnPrizes } = calcLowNet(event);
-  const { payouts: ctpPayouts, totalWins: ctpWins, perWin: ctpPerWin, pot: ctpPot, ctpResults } = calcCTP(event);
+  const { payouts: lnPayouts, positions: lnPositions, pot: lnPot, pcts: lnPcts, prizes: lnPrizes } = calcLowNet(eventForCalc);
+  const { payouts: ctpPayouts, totalWins: ctpWins, perWin: ctpPerWin, pot: ctpPot, ctpResults } = calcCTP(eventForCalc);
 
   const bpConfig = games.birdiePool;
   const birdiePoolEnabled = bpConfig === true || (bpConfig && typeof bpConfig === "object" && bpConfig.enabled !== false);
-  const gpPlayers = gamblingPlayers(event);
-  const bpPlayers = birdiePoolPlayers(event);
+  const gpPlayers = gamblingPlayers(eventForCalc);
+  const bpPlayers = birdiePoolPlayers(eventForCalc);
   const birdieByRound = birdiePoolEnabled ? [1, 2, 3].map(rNum => {
     const roundEnabled = bpConfig === true || bpConfig?.[rNum] !== false;
     if (!roundEnabled) return null;

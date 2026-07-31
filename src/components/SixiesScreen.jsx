@@ -39,9 +39,9 @@ function sixiesForced(decisions, k, nHoles, takesNeeded) {
 
 const COLORS = [G, GO, "#4a7fc4", "#9b4db5"];
 
-export default function SixiesScreen({ event, saveEvent }) {
+export default function SixiesScreen({ event, saveEvent, library }) {
   const players = event.players || [];
-  const courses = event.courses || {};
+  const courses = { ...(event.courses || {}), ...library };
   const sx = event.sixies || {};
   const cellRefs = useRef({});
 

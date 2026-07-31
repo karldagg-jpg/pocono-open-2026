@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { onSnapshot, setDoc, updateDoc } from "firebase/firestore";
-import { weekendDoc, setActiveWeekendId, getActiveWeekendId, subscribeIndex, saveIndex, createWeekend } from "./firebase/client";
+import { weekendDoc, setActiveWeekendId, getActiveWeekendId, subscribeIndex, saveIndex, createWeekend, subscribeLibrary } from "./firebase/client";
 import { BG, CREAM, G, GO, GOLD, M, R, FB, FD } from "./constants/theme";
 import SetupScreen from "./components/SetupScreen";
 import CourseScreen from "./components/CourseScreen";
@@ -53,6 +53,7 @@ export default function App() {
   const [pinError, setPinError] = useState(false);
   const [weekendId, setWeekendId] = useState(() => getActiveWeekendId());
   const [weekendIndex, setWeekendIndex] = useState({});
+  const [library, setLibrary] = useState({});
 
   useEffect(() => {
     const on = () => setOnline(true);
@@ -64,6 +65,9 @@ export default function App() {
 
   // Weekend index (dropdown source)
   useEffect(() => subscribeIndex((idx) => setWeekendIndex(idx || {})), []);
+
+  // Shared course library — single source of truth, independent of any one weekend/round.
+  useEffect(() => subscribeLibrary((lib) => setLibrary(lib || {})), []);
 
   // Subscribe to the active weekend; re-subscribes when the weekend changes.
   useEffect(() => {
@@ -157,7 +161,7 @@ export default function App() {
 
   // Determine if event has scores entered (to decide nav mode)
   const hasPlayers = (event.players || []).length > 0;
-  const hasCourses = Object.keys(event.courses || {}).length > 0;
+  const hasCourses = Object.keys(library).length > 0;
   const isSetupPhase = !hasPlayers || !hasCourses;
 
   const PRIMARY = isSetupPhase
@@ -294,16 +298,16 @@ export default function App() {
       ) : (
         <div>
           {screen === "setup"       && <SetupScreen      event={event} saveEvent={saveEvent} setAdminPin={setAdminPin} authed={authed} />}
-          {screen === "courses"     && <CourseScreen      event={event} saveEvent={saveEvent} />}
+          {screen === "courses"     && <CourseScreen      event={event} saveEvent={saveEvent} library={library} />}
           {screen === "pairings"    && <PairingsScreen    event={event} saveEvent={saveEvent} />}
-          {screen === "scoring"     && <ScoringScreen     event={event} saveEvent={saveEvent} />}
-          {screen === "scatts"      && <ScattsScreen      event={event} />}
-          {screen === "leaderboard" && <LeaderboardScreen event={event} />}
-          {screen === "winnings"    && <WinningsScreen    event={event} />}
-          {screen === "games"       && <GamesScreen       event={event} saveEvent={saveEvent} />}
-          {screen === "replay"      && <ReplayScreen      event={event} />}
+          {screen === "scoring"     && <ScoringScreen     event={event} saveEvent={saveEvent} library={library} />}
+          {screen === "scatts"      && <ScattsScreen      event={event} library={library} />}
+          {screen === "leaderboard" && <LeaderboardScreen event={event} library={library} />}
+          {screen === "winnings"    && <WinningsScreen    event={event} library={library} />}
+          {screen === "games"       && <GamesScreen       event={event} saveEvent={saveEvent} library={library} />}
+          {screen === "replay"      && <ReplayScreen      event={event} library={library} />}
           {screen === "thursday"    && <ThursdayScreen    event={event} saveEvent={saveEvent} />}
-          {screen === "sixies"      && <SixiesScreen      event={event} saveEvent={saveEvent} />}
+          {screen === "sixies"      && <SixiesScreen      event={event} saveEvent={saveEvent} library={library} />}
         </div>
       )}
     </div>
