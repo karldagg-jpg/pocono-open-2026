@@ -137,7 +137,12 @@ export default function SixiesScreen({ event, saveEvent, library }) {
   // that's what feeds the net total and the X/6 count.
   const isBanked = (pid, k) => effectiveTakes(pid)[k] === true && grossOn(pid, holeIdx[k]) > 0;
   const sixiesTotal = (pid) => holeIdx.reduce((s, h, k) => (isBanked(pid, k) ? s + (grossOn(pid, h) - strokesOn(pid, h)) : s), 0);
+  const sixiesGross = (pid) => holeIdx.reduce((s, h, k) => (isBanked(pid, k) ? s + grossOn(pid, h) : s), 0);
+  const sixiesStrokes = (pid) => holeIdx.reduce((s, h, k) => (isBanked(pid, k) ? s + strokesOn(pid, h) : s), 0);
   const sixiesTaken = (pid) => holeIdx.reduce((n, h, k) => (isBanked(pid, k) ? n + 1 : n), 0);
+  // Full-nine actuals (every hole played, taken or not).
+  const roundGross = (pid) => holeIdx.reduce((s, h) => s + grossOn(pid, h), 0);
+  const roundNet = (pid) => holeIdx.reduce((s, h) => s + (grossOn(pid, h) > 0 ? netOn(pid, h) : 0), 0);
   // Effective passes = holes passed by choice OR forced to pass (once 6 are taken).
   const sixiesPassed = (pid) => effectiveTakes(pid).filter((x) => x === false).length;
   const sixiesComplete = (pid) => sixiesTaken(pid) === TAKES_NEEDED;
@@ -149,8 +154,9 @@ export default function SixiesScreen({ event, saveEvent, library }) {
   const standings = selPlayers
     .map((p) => ({
       id: p.id, name: p.name, color: COLORS[playerIds.indexOf(p.id)],
-      total: sixiesTotal(p.id), taken: sixiesTaken(p.id), complete: sixiesComplete(p.id),
-      stab: stabTotal(p.id),
+      total: sixiesTotal(p.id), gross: sixiesGross(p.id), strokes: sixiesStrokes(p.id),
+      taken: sixiesTaken(p.id), complete: sixiesComplete(p.id),
+      roundGross: roundGross(p.id), roundNet: roundNet(p.id), stab: stabTotal(p.id),
     }))
     .sort((a, b) => {
       if (a.complete !== b.complete) return a.complete ? -1 : 1;
@@ -416,19 +422,20 @@ export default function SixiesScreen({ event, saveEvent, library }) {
           {/* Read-only overview scorecard */}
           <div style={{ background: CARD2, border: `1px solid ${GOLD}22`, borderRadius: "14px", overflow: "hidden", marginBottom: "14px" }}>
             <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: `${120 + N_HOLES * 40}px` }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: `${180 + N_HOLES * 40}px` }}>
                 <thead>
                   <tr style={{ background: "rgba(26,61,36,0.07)", borderBottom: `1px solid ${GOLD}33` }}>
                     <td style={{ padding: "6px 10px", fontWeight: 700, color: M, fontSize: "12px", whiteSpace: "nowrap" }}>Hole</td>
                     {holeIdx.map((h, k) => (
                       <td key={h} onClick={() => setActiveK(k)} style={{ padding: "6px 3px", textAlign: "center", fontWeight: 700, color: k === activeK ? G : M, fontSize: "12px", minWidth: "36px", cursor: "pointer" }}>{h + 1}</td>
                     ))}
-                    <td style={{ padding: "6px 8px", textAlign: "center", fontWeight: 700, color: GOLD, fontSize: "11px" }}>6s net</td>
+                    <td style={{ padding: "6px 6px", textAlign: "center", fontWeight: 700, color: M, fontSize: "11px", whiteSpace: "nowrap" }}>6s Gross</td>
+                    <td style={{ padding: "6px 8px", textAlign: "center", fontWeight: 700, color: GOLD, fontSize: "11px", whiteSpace: "nowrap" }}>6s Net</td>
                   </tr>
                   <tr style={{ background: "rgba(26,61,36,0.03)", fontSize: "11px", color: M, borderBottom: `2px solid ${GOLD}33` }}>
                     <td style={{ padding: "3px 10px", fontWeight: 600 }}>Par</td>
                     {holeIdx.map((h) => <td key={h} style={{ padding: "3px 3px", textAlign: "center" }}>{course.par[h]}</td>)}
-                    <td />
+                    <td /><td />
                   </tr>
                 </thead>
                 <tbody>
@@ -457,6 +464,9 @@ export default function SixiesScreen({ event, saveEvent, library }) {
                             </td>
                           );
                         })}
+                        <td style={{ padding: "6px 6px", textAlign: "center", fontWeight: 700, color: CREAM, fontSize: "15px", whiteSpace: "nowrap" }}>
+                          {sixiesTaken(p.id) > 0 ? sixiesGross(p.id) : "—"}
+                        </td>
                         <td style={{ padding: "6px 8px", textAlign: "center", fontWeight: 800, color: GOLD, fontSize: "16px", whiteSpace: "nowrap" }}>
                           {sixiesTaken(p.id) > 0 ? sixiesTotal(p.id) : "—"}
                         </td>
@@ -474,6 +484,15 @@ export default function SixiesScreen({ event, saveEvent, library }) {
               <div style={{ fontSize: "11px", letterSpacing: "0.1em", textTransform: "uppercase", color: GOLD, marginBottom: "8px", fontWeight: 700 }}>
                 ⬡ {NINES[game].label} Standings <span style={{ color: M, fontWeight: 400 }}>· lowest net wins</span>
               </div>
+              {/* Column headers */}
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "0 0 4px" }}>
+                <span style={{ minWidth: "18px" }} />
+                <span style={{ width: "10px" }} />
+                <span style={{ flex: 1 }} />
+                <span style={{ fontSize: "10px", color: M, letterSpacing: "0.05em", textTransform: "uppercase", minWidth: "38px", textAlign: "center" }}>Taken</span>
+                <span style={{ fontSize: "10px", color: M, letterSpacing: "0.05em", textTransform: "uppercase", minWidth: "44px", textAlign: "right" }}>Gross</span>
+                <span style={{ fontSize: "10px", color: GOLD, letterSpacing: "0.05em", textTransform: "uppercase", minWidth: "44px", textAlign: "right", fontWeight: 700 }}>Net</span>
+              </div>
               {standings.map((r, rank) => {
                 const isLeader = rank === 0 && r.id === leaderId;
                 return (
@@ -484,15 +503,15 @@ export default function SixiesScreen({ event, saveEvent, library }) {
                       {r.name}
                       {isLeader && <span style={{ marginLeft: "8px", fontSize: "11px", fontWeight: 700, color: GOLD }}>◆ {r.complete ? "clubhouse leader" : "leading"}</span>}
                     </span>
-                    <span style={{ fontSize: "12px", color: r.complete ? G : M, fontWeight: r.complete ? 700 : 400 }}>{r.taken}/{TAKES_NEEDED}{r.complete ? " ✓" : ""}</span>
-                    <span style={{ fontSize: "22px", fontWeight: 700, color: isLeader ? GOLD : CREAM, minWidth: "40px", textAlign: "right" }}>
-                      {r.taken > 0 ? r.total : "—"}
-                    </span>
+                    <span style={{ fontSize: "12px", color: r.complete ? G : M, fontWeight: r.complete ? 700 : 400, minWidth: "38px", textAlign: "center" }}>{r.taken}/{TAKES_NEEDED}{r.complete ? " ✓" : ""}</span>
+                    <span style={{ fontSize: "16px", fontWeight: 600, color: CREAM, minWidth: "44px", textAlign: "right" }}>{r.taken > 0 ? r.gross : "—"}</span>
+                    <span style={{ fontSize: "22px", fontWeight: 800, color: isLeader ? GOLD : CREAM, minWidth: "44px", textAlign: "right" }}>{r.taken > 0 ? r.total : "—"}</span>
                   </div>
                 );
               })}
-              <div style={{ fontSize: "11px", color: M, marginTop: "8px" }}>
-                Net = gross − strokes on your {TAKES_NEEDED} taken holes. Stableford (info): {standings.map((r) => `${r.name} ${r.stab}`).join(" · ")}
+              <div style={{ fontSize: "11px", color: M, marginTop: "8px", lineHeight: 1.5 }}>
+                Net = gross − strokes on your {TAKES_NEEDED} taken holes.<br />
+                Full nine (actual): {standings.map((r) => `${r.name} ${r.roundGross} gross / ${r.roundNet} net`).join(" · ")}
               </div>
             </div>
           )}
