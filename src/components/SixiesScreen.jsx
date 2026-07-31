@@ -492,7 +492,7 @@ export default function SixiesScreen({ event, saveEvent, library }) {
                               background: taken ? G + "12" : passed ? "rgba(0,0,0,0.02)" : "transparent",
                             }}>
                               {strokes > 0 && (
-                                <span style={{ position: "absolute", top: "3px", left: "3px", display: "flex", gap: "1px" }}>
+                                <span style={{ position: "absolute", top: "2px", left: "50%", transform: "translateX(-50%)", display: "flex", gap: "2px" }}>
                                   {Array.from({ length: strokes }, (_, i) => (
                                     <span key={i} style={{ width: "4px", height: "4px", borderRadius: "50%", background: G }} />
                                   ))}
