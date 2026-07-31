@@ -429,8 +429,8 @@ export default function SixiesScreen({ event, saveEvent, library }) {
                     {holeIdx.map((h, k) => (
                       <td key={h} onClick={() => setActiveK(k)} style={{ padding: "6px 3px", textAlign: "center", fontWeight: 700, color: k === activeK ? G : M, fontSize: "12px", minWidth: "36px", cursor: "pointer" }}>{h + 1}</td>
                     ))}
-                    <td style={{ padding: "6px 6px", textAlign: "center", fontWeight: 700, color: M, fontSize: "11px", whiteSpace: "nowrap" }}>6s Gross</td>
-                    <td style={{ padding: "6px 8px", textAlign: "center", fontWeight: 700, color: GOLD, fontSize: "11px", whiteSpace: "nowrap" }}>6s Net</td>
+                    <td style={{ padding: "6px 6px", textAlign: "center", fontWeight: 700, color: M, fontSize: "11px", whiteSpace: "nowrap" }}>Gross</td>
+                    <td style={{ padding: "6px 8px", textAlign: "center", fontWeight: 700, color: M, fontSize: "11px", whiteSpace: "nowrap" }}>Net</td>
                   </tr>
                   <tr style={{ background: "rgba(26,61,36,0.03)", fontSize: "11px", color: M, borderBottom: `2px solid ${GOLD}33` }}>
                     <td style={{ padding: "3px 10px", fontWeight: 600 }}>Par</td>
@@ -465,10 +465,10 @@ export default function SixiesScreen({ event, saveEvent, library }) {
                           );
                         })}
                         <td style={{ padding: "6px 6px", textAlign: "center", fontWeight: 700, color: CREAM, fontSize: "15px", whiteSpace: "nowrap" }}>
-                          {sixiesTaken(p.id) > 0 ? sixiesGross(p.id) : "—"}
+                          {roundGross(p.id) > 0 ? roundGross(p.id) : "—"}
                         </td>
-                        <td style={{ padding: "6px 8px", textAlign: "center", fontWeight: 800, color: GOLD, fontSize: "16px", whiteSpace: "nowrap" }}>
-                          {sixiesTaken(p.id) > 0 ? sixiesTotal(p.id) : "—"}
+                        <td style={{ padding: "6px 8px", textAlign: "center", fontWeight: 700, color: CREAM, fontSize: "15px", whiteSpace: "nowrap" }}>
+                          {roundGross(p.id) > 0 ? roundNet(p.id) : "—"}
                         </td>
                       </tr>
                     );
@@ -509,9 +509,8 @@ export default function SixiesScreen({ event, saveEvent, library }) {
                   </div>
                 );
               })}
-              <div style={{ fontSize: "11px", color: M, marginTop: "8px", lineHeight: 1.5 }}>
-                Net = gross − strokes on your {TAKES_NEEDED} taken holes.<br />
-                Full nine (actual): {standings.map((r) => `${r.name} ${r.roundGross} gross / ${r.roundNet} net`).join(" · ")}
+              <div style={{ fontSize: "11px", color: M, marginTop: "8px" }}>
+                Gross &amp; Net are your {TAKES_NEEDED} taken holes (Net = gross − strokes). Full-round totals are on the scorecard above.
               </div>
             </div>
           )}
