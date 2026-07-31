@@ -28,12 +28,14 @@ const N_HOLES = 9;
 const TAKES_NEEDED = 6;
 const PASSES_ALLOWED = N_HOLES - TAKES_NEEDED; // 3
 
+// Forcing is based only on decisions actually made — never on hole position.
+// (A position rule would pre-mark the tail of the round as "forced take" before
+// you've played a hole, which is wrong: nothing is decided until you decide it.)
 function sixiesForced(decisions, k) {
   const takesUsed = decisions.slice(0, k).filter((x) => x === true).length;
   const passesUsed = decisions.slice(0, k).filter((x) => x === false).length;
-  if (takesUsed >= TAKES_NEEDED) return false;         // already taken 6
-  if (passesUsed >= PASSES_ALLOWED) return true;       // already passed 3
-  if ((N_HOLES - 1 - k) < (TAKES_NEEDED - takesUsed)) return true; // not enough holes left
+  if (takesUsed >= TAKES_NEEDED) return false;   // already taken 6 → rest pass
+  if (passesUsed >= PASSES_ALLOWED) return true; // already passed 3 → rest take
   return null;
 }
 
@@ -129,34 +131,31 @@ export default function SixiesScreen({ event, saveEvent, library }) {
     const dec = decisionsOf(pid);
     return dec.map((chosen, k) => (chosen !== null ? chosen : sixiesForced(dec, k)));
   };
-  const sixiesTotal = (pid) => {
-    const eff = effectiveTakes(pid);
-    return holeIdx.reduce((s, h, k) => {
-      if (eff[k] !== true) return s;
-      const g = grossOn(pid, h);
-      if (!g) return s;
-      return s + (g - strokesOn(pid, h));
-    }, 0);
-  };
-  const sixiesTaken = (pid) => effectiveTakes(pid).filter((x) => x === true).length;
+  // A hole counts as "taken" only once it's taken AND has a score entered —
+  // that's what feeds the net total and the X/6 count.
+  const isBanked = (pid, k) => effectiveTakes(pid)[k] === true && grossOn(pid, holeIdx[k]) > 0;
+  const sixiesTotal = (pid) => holeIdx.reduce((s, h, k) => (isBanked(pid, k) ? s + (grossOn(pid, h) - strokesOn(pid, h)) : s), 0);
+  const sixiesTaken = (pid) => holeIdx.reduce((n, h, k) => (isBanked(pid, k) ? n + 1 : n), 0);
   const sixiesPassed = (pid) => decisionsOf(pid).filter((x) => x === false).length;
-  const sixiesComplete = (pid) => {
-    const eff = effectiveTakes(pid);
-    // every taken hole must have a gross
-    return eff.every((e, k) => e !== true || grossOn(pid, holeIdx[k]) > 0) && sixiesTaken(pid) === TAKES_NEEDED;
-  };
+  const sixiesComplete = (pid) => sixiesTaken(pid) === TAKES_NEEDED;
 
   const anyScores = selPlayers.some((p) => holeIdx.some((h) => grossOn(p.id, h) > 0));
 
-  // Sixies standings — lowest net over the 6 taken holes wins
+  // Standings: finished rounds first (lowest net wins the clubhouse), then
+  // in-progress players by how far along they are, then by net so far.
   const standings = selPlayers
     .map((p) => ({
       id: p.id, name: p.name, color: COLORS[playerIds.indexOf(p.id)],
       total: sixiesTotal(p.id), taken: sixiesTaken(p.id), complete: sixiesComplete(p.id),
       stab: stabTotal(p.id),
     }))
-    .sort((a, b) => a.total - b.total);
-  const leaderId = anyScores && standings.length ? standings[0].id : null;
+    .sort((a, b) => {
+      if (a.complete !== b.complete) return a.complete ? -1 : 1;
+      if (a.complete) return a.total - b.total;
+      if (b.taken !== a.taken) return b.taken - a.taken;
+      return a.total - b.total;
+    });
+  const leaderId = anyScores && standings.length && standings[0].taken > 0 ? standings[0].id : null;
 
   // ── Empty states ────────────────────────────────────────────────────────────
   if (players.length === 0 || courseKeys.length === 0) {
@@ -455,20 +454,23 @@ export default function SixiesScreen({ event, saveEvent, library }) {
               <div style={{ fontSize: "11px", letterSpacing: "0.1em", textTransform: "uppercase", color: GOLD, marginBottom: "8px", fontWeight: 700 }}>
                 ⬡ {NINES[game].label} Standings <span style={{ color: M, fontWeight: 400 }}>· lowest net wins</span>
               </div>
-              {standings.map((r, rank) => (
-                <div key={r.id} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "9px 0", borderBottom: rank < standings.length - 1 ? `1px solid ${GOLD}18` : "none" }}>
-                  <span style={{ fontSize: "14px", fontWeight: 700, color: rank === 0 ? GOLD : M, minWidth: "18px", textAlign: "center" }}>{rank + 1}</span>
-                  <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: r.color }} />
-                  <span style={{ flex: 1, fontSize: "15px", fontWeight: 600, color: CREAM }}>
-                    {r.name}
-                    {rank === 0 && <span style={{ marginLeft: "8px", fontSize: "11px", fontWeight: 700, color: GOLD }}>◆ leading</span>}
-                  </span>
-                  <span style={{ fontSize: "12px", color: r.complete ? G : M }}>{r.taken}/{TAKES_NEEDED}{r.complete ? " ✓" : ""}</span>
-                  <span style={{ fontSize: "22px", fontWeight: 700, color: rank === 0 ? GOLD : CREAM, minWidth: "40px", textAlign: "right" }}>
-                    {r.taken > 0 ? r.total : "—"}
-                  </span>
-                </div>
-              ))}
+              {standings.map((r, rank) => {
+                const isLeader = rank === 0 && r.id === leaderId;
+                return (
+                  <div key={r.id} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "9px 0", borderBottom: rank < standings.length - 1 ? `1px solid ${GOLD}18` : "none" }}>
+                    <span style={{ fontSize: "14px", fontWeight: 700, color: isLeader ? GOLD : M, minWidth: "18px", textAlign: "center" }}>{rank + 1}</span>
+                    <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: r.color }} />
+                    <span style={{ flex: 1, fontSize: "15px", fontWeight: 600, color: CREAM }}>
+                      {r.name}
+                      {isLeader && <span style={{ marginLeft: "8px", fontSize: "11px", fontWeight: 700, color: GOLD }}>◆ {r.complete ? "clubhouse leader" : "leading"}</span>}
+                    </span>
+                    <span style={{ fontSize: "12px", color: r.complete ? G : M, fontWeight: r.complete ? 700 : 400 }}>{r.taken}/{TAKES_NEEDED}{r.complete ? " ✓" : ""}</span>
+                    <span style={{ fontSize: "22px", fontWeight: 700, color: isLeader ? GOLD : CREAM, minWidth: "40px", textAlign: "right" }}>
+                      {r.taken > 0 ? r.total : "—"}
+                    </span>
+                  </div>
+                );
+              })}
               <div style={{ fontSize: "11px", color: M, marginTop: "8px" }}>
                 Net = gross − strokes on your {TAKES_NEEDED} taken holes. Stableford (info): {standings.map((r) => `${r.name} ${r.stab}`).join(" · ")}
               </div>
