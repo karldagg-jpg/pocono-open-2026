@@ -1,11 +1,18 @@
 import { CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
 import { calcWinnings, calcLeaderboard, calcScatts, calcLowNet, calcCTP, calcBirdiePool, calcHIOBonus, gamblingPlayers, birdiePoolPlayers } from "../lib/golfLogic";
+import { settleWeekend, settlementTransfers } from "../lib/settlement";
+import { useState } from "react";
+
+const money = (n) => `${n < 0 ? "−" : "+"}$${Math.abs(n).toLocaleString()}`;
 
 export default function WinningsScreen({ event, library }) {
+  const [showTransfers, setShowTransfers] = useState(false);
   const { players = [], rounds = {}, buyIn = 100, weekendBuyIn, games = {} } = event;
   const courses = { ...(event.courses || {}), ...library };
   const eventForCalc = { ...event, courses };
   const winnings = calcWinnings(eventForCalc);
+  const settlement = settleWeekend(eventForCalc);
+  const transfers = settlementTransfers(settlement.rows);
 
   const potByRound = games.scatts?.potByRound;
   const scattsByRound = [1, 2, 3].map((rNum) => {
@@ -74,9 +81,91 @@ export default function WinningsScreen({ event, library }) {
         <StatBox label="Paid Out" value={`$${totalPaidOut.toLocaleString()}`} color={GO} />
       </div>
 
+      {/* ── Settle up ──
+          Every other section on this page answers "what did you win". This one
+          answers the only question anyone asks in the car park: after the
+          buy-in, am I up or down. */}
+      <Section title="Settle Up" color={GOLD}>
+        <div style={{ padding: "9px 14px", fontSize: "12px", color: M, borderBottom: `1px solid rgba(201,168,76,0.08)` }}>
+          Winnings less the ${settlement.buyIn} buy-in. Positive means they collect.
+        </div>
+
+        {settlement.rows.map((r) => {
+          const up = r.net > 0, flat = r.net === 0;
+          return (
+            <div key={r.player.id} style={{ padding: "9px 14px", borderBottom: `1px solid rgba(201,168,76,0.08)`, display: "flex", alignItems: "center", gap: "10px" }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: "14px", color: CREAM, fontWeight: 600 }}>
+                  {r.player.name}
+                  {!r.playing && <span style={{ color: M, fontWeight: 400, fontSize: "12px" }}> · not in</span>}
+                </div>
+                <div style={{ fontSize: "11px", color: M, marginTop: "2px" }}>
+                  {[
+                    r.staked ? `−$${r.staked} in` : null,
+                    r.scatts ? `scats $${r.scatts}` : null,
+                    r.lowNet ? `low net $${r.lowNet}` : null,
+                    r.ctp ? `CTP $${r.ctp}` : null,
+                    r.hio ? `HIO $${r.hio}` : null,
+                    r.birdie ? `birdies ${money(r.birdie)}` : null,
+                  ].filter(Boolean).join(" · ") || "no action"}
+                </div>
+              </div>
+              <div style={{ fontFamily: FB, fontSize: "16px", fontWeight: 700, fontVariantNumeric: "tabular-nums", color: flat ? M : up ? GO : R }}>
+                {flat ? "$0" : money(r.net)}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* The books rarely balance exactly. Say so, rather than let someone
+            find the gap themselves while holding the cash. */}
+        {(settlement.totals.unallocated !== 0 || settlement.totals.payoutDrift !== 0) && (
+          <div style={{ padding: "11px 14px", background: "rgba(201,168,76,0.05)", fontSize: "12px", color: M, lineHeight: 1.5 }}>
+            <div style={{ color: GOLD, fontWeight: 600, marginBottom: "3px" }}>Reconciliation</div>
+            ${settlement.totals.collected.toLocaleString()} collected · ${settlement.totals.pots.toLocaleString()} in the pots · ${settlement.totals.paidOut.toLocaleString()} paid out.
+            {settlement.totals.unallocated !== 0 && (
+              <> <strong style={{ color: CREAM }}>${Math.abs(settlement.totals.unallocated)}</strong>
+                {settlement.totals.unallocated > 0 ? " collected isn't in any pot" : " more is in the pots than was collected"} — check the pot amounts on Games.</>
+            )}
+            {settlement.totals.payoutDrift !== 0 && (
+              <> Payouts are ${Math.abs(settlement.totals.payoutDrift)} {settlement.totals.payoutDrift > 0 ? "over" : "under"} the pot total from rounding each scat share.</>
+            )}
+          </div>
+        )}
+
+        {settlement.staleOptOuts.length > 0 && (
+          <div style={{ padding: "10px 14px", background: "rgba(201,168,76,0.05)", fontSize: "12px", color: M }}>
+            {settlement.staleOptOuts.length} opt-out{settlement.staleOptOuts.length === 1 ? "" : "s"} left over from a player no longer on the roster. Harmless, but worth clearing on Players.
+          </div>
+        )}
+
+        {transfers.length > 0 && (
+          <div style={{ padding: "10px 14px" }}>
+            <button onClick={() => setShowTransfers(!showTransfers)}
+              style={{ border: "none", background: "transparent", color: GOLD, fontFamily: FB, fontSize: "13px", fontWeight: 600, cursor: "pointer", padding: 0 }}>
+              {showTransfers ? "Hide" : "Show"} who pays whom ({transfers.length} payment{transfers.length === 1 ? "" : "s"})
+            </button>
+            {showTransfers && (
+              <div style={{ marginTop: "9px" }}>
+                {transfers.map((t, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "5px 0", fontSize: "13px", color: CREAM }}>
+                    <span style={{ minWidth: "72px" }}>{t.from}</span>
+                    <span style={{ color: M }}>→</span>
+                    <span style={{ flex: 1 }}>{t.to}</span>
+                    <span style={{ fontFamily: FB, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: GO }}>${t.amount}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </Section>
+
       {/* ── Scatts ── */}
       {(games.scatts?.enabled !== false) && (
-        <Section title="Scats / Skins" pot={games.scatts?.pot} color={G}>
+        /* The per-round pots are what actually gets played for; the flat `pot`
+           field goes stale the moment a round is set individually. */
+        <Section title="Scats / Skins" pot={settlement.pots.scatts} color={G}>
           {scattsByRound.map((r, ri) => {
             if (!r) return (
               <div key={ri} style={{ padding: "10px 14px", borderBottom: `1px solid rgba(201,168,76,0.08)`, display: "flex", justifyContent: "space-between" }}>
