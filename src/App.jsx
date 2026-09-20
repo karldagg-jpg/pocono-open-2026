@@ -13,8 +13,10 @@ import GamesScreen from "./components/GamesScreen";
 import ReplayScreen from "./components/ReplayScreen";
 import ThursdayScreen from "./components/ThursdayScreen";
 import SixiesScreen from "./components/SixiesScreen";
+import LiveScreen from "./components/LiveScreen";
 
 const TABS = [
+  { id: "live",        label: "Live" },
   { id: "leaderboard", label: "Leaderboard" },
   { id: "scoring",     label: "Scoring" },
   { id: "scatts",      label: "Scats" },
@@ -39,7 +41,7 @@ const DEFAULT_EVENT = {
 
 // Admin PIN — stored in Firestore as event.adminPin
 // Read-only screens (leaderboard, scatts, winnings) don't require PIN
-const READ_ONLY_SCREENS = ["leaderboard", "scatts", "winnings"];
+const READ_ONLY_SCREENS = ["live", "leaderboard", "scatts", "winnings"];
 
 export default function App() {
   const [screen, setScreen] = useState("leaderboard");
@@ -302,6 +304,7 @@ export default function App() {
           {screen === "pairings"    && <PairingsScreen    event={event} saveEvent={saveEvent} />}
           {screen === "scoring"     && <ScoringScreen     event={event} saveEvent={saveEvent} library={library} />}
           {screen === "scatts"      && <ScattsScreen      event={event} library={library} />}
+          {screen === "live"        && <LiveScreen        event={event} library={library} weekendLabel={(weekendIndex[weekendId] || {}).label} />}
           {screen === "leaderboard" && <LeaderboardScreen event={event} library={library} />}
           {screen === "winnings"    && <WinningsScreen    event={event} library={library} />}
           {screen === "games"       && <GamesScreen       event={event} saveEvent={saveEvent} library={library} />}
