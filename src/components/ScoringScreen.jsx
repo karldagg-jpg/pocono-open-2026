@@ -7,6 +7,20 @@ import { savePlayerScore, saveRoundCourse } from "../firebase/client";
 
 const LOST_BALL_SECS = 180;
 
+// What you'd call the score out loud. Gross against par, so a stroke doesn't
+// turn a par into a birdie — the net figure sits beside it for that.
+function scoreName(gross, par) {
+  if (gross === 1) return "ACE";
+  const d = gross - par;
+  if (d <= -3) return "Albatross";
+  if (d === -2) return "Eagle";
+  if (d === -1) return "Birdie";
+  if (d === 0) return "Par";
+  if (d === 1) return "Bogey";
+  if (d === 2) return "Double";
+  return `+${d}`;
+}
+
 // Module-level AudioContext — created on first user tap so iOS allows it later
 let _audioCtx = null;
 
@@ -590,7 +604,80 @@ export default function ScoringScreen({ event, saveEvent, library }) {
             );
           })()}
 
-          {/* Player stepper cards */}
+          {/* ── Compact entry rows (on course) ──
+              The card grid gives each player ~160px of height, so a foursome
+              runs off the screen and you scroll to enter a score. These are one
+              row each — the whole group and the hole strip fit in a glance,
+              which is the layout PVGC settled on for the same reason. */}
+          {onCourse && (
+            <div style={{ marginBottom: "16px" }}>
+              {groupPlayers.map((p) => {
+                const chcp = getEffectiveHcp(p, course, useIndex);
+                const strokes = strokesOnHole(chcp, si);
+                const gross = (scores[p.id] || [])[activeHole] || 0;
+                const net = gross ? netHole(gross, chcp, si) : null;
+                const vsPar = net !== null ? net - par : null;
+                const netColor = vsPar === null ? M : vsPar < 0 ? R : vsPar === 0 ? G : CREAM;
+
+                return (
+                  <div key={p.id} style={{
+                    display: "flex", alignItems: "center", gap: "8px",
+                    background: CARD, border: "1px solid #d0d8d0", borderRadius: "10px",
+                    padding: "6px 8px 6px 11px", marginBottom: "7px",
+                  }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: "15px", fontWeight: 700, color: CREAM, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {p.name}
+                      </div>
+                      <div style={{ fontSize: "10.5px", color: strokes > 0 ? G : M, marginTop: "1px", fontWeight: strokes > 0 ? 700 : 400 }}>
+                        {strokes > 0 ? `${"•".repeat(strokes)} ${strokes} stroke${strokes > 1 ? "s" : ""} here` : `plays off ${chcp} · no shot`}
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+                      <button onClick={() => stepScore(p.id, activeHole, -1)}
+                        style={{
+                          width: "40px", height: "46px", borderRadius: "9px 0 0 9px",
+                          border: "1px solid #c8d0c8", borderRight: "none", background: "rgba(26,61,36,0.06)",
+                          color: CREAM, fontSize: "21px", cursor: "pointer", touchAction: "manipulation",
+                        }}>−</button>
+                      <div onClick={() => !gross && setScore(p.id, activeHole, par)}
+                        style={{
+                          width: "50px", height: "46px",
+                          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                          border: gross ? "1px solid #c8d0c8" : `2px dashed ${G}88`,
+                          background: gross ? "rgba(26,61,36,0.06)" : `${G}15`,
+                          cursor: gross ? "default" : "pointer", touchAction: "manipulation",
+                        }}>
+                        <span style={{ fontSize: gross ? "20px" : "11px", fontWeight: 700, lineHeight: 1, color: gross ? CREAM : G }}>
+                          {gross || "PAR"}
+                        </span>
+                        <span style={{ fontSize: "9px", lineHeight: 1, marginTop: "2px", color: gross ? M : G }}>
+                          {gross ? scoreName(gross, par) : `tap = ${par}`}
+                        </span>
+                      </div>
+                      <button onClick={() => stepScore(p.id, activeHole, +1)}
+                        style={{
+                          width: "40px", height: "46px", borderRadius: "0 9px 9px 0",
+                          border: "1px solid #c8d0c8", borderLeft: "none", background: "rgba(26,61,36,0.06)",
+                          color: CREAM, fontSize: "21px", cursor: "pointer", touchAction: "manipulation",
+                        }}>+</button>
+                    </div>
+
+                    <div style={{ width: "36px", textAlign: "right", flexShrink: 0 }}>
+                      <div style={{ fontSize: "19px", fontWeight: 800, lineHeight: 1, color: gross ? netColor : M }}>
+                        {gross ? net : "–"}
+                      </div>
+                      <div style={{ fontSize: "9px", color: M, marginTop: "2px" }}>net</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Player stepper cards — the roomier clubhouse layout */}
+          {!onCourse && (
           <div style={{
             display: "grid",
             gridTemplateColumns: groupPlayers.length <= 2 ? "1fr 1fr" : "repeat(auto-fill, minmax(180px, 1fr))",
@@ -690,6 +777,7 @@ export default function ScoringScreen({ event, saveEvent, library }) {
               );
             })}
           </div>
+          )}
 
           {/* Running totals strip */}
           {groupPlayers.length > 0 && (

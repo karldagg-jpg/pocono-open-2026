@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { liveRound, liveWeekend, positionDelta } from "../lib/liveBoard";
+import { boardRecap, tickerMoments } from "../lib/boardRecap";
 import { totalPar } from "../lib/golfLogic";
 
 // Broadcast-style board. Deliberately dark and self-contained rather than using
@@ -95,6 +96,8 @@ export default function LiveScreen({ event, library, meId: meIdProp, weekendLabe
   const anyLive = round?.anyInProgress;
   const par = round?.course ? totalPar(round.course) : null;
   const scoreOf = (r) => (view === "gross" ? r.toPar : r.netToPar);
+  const recap = useMemo(() => boardRecap(ev, roundId), [ev, roundId]);
+  const ticker = useMemo(() => tickerMoments(ev, roundId), [ev, roundId]);
 
   return (
     <div style={{ background: BOARD, color: INK, borderRadius: "14px", overflow: "hidden", maxWidth: "760px", margin: "0 auto" }}>
@@ -115,6 +118,47 @@ export default function LiveScreen({ event, library, meId: meIdProp, weekendLabe
           )}
         </div>
       </div>
+
+      {/* ── Moments ──
+          The order is on the table below. This is what people are talking
+          about. It scrolls only when there's something to scroll. */}
+      {ticker.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 14px", background: "rgba(31,122,72,.14)", borderBottom: `1px solid ${LINE}`, overflow: "hidden" }}>
+          <span style={{ fontSize: "9.5px", fontWeight: 800, letterSpacing: ".12em", color: UNDER, flexShrink: 0 }}>MOMENTS</span>
+          <div style={{ display: "flex", gap: "18px", overflowX: "auto", scrollbarWidth: "none", fontSize: "12px", whiteSpace: "nowrap" }}>
+            {ticker.map((m, i) => (
+              <span key={i} style={{ color: m.kind === "birdie" ? MUTED : m.kind === "eagle" ? UNDER : GOLDL, fontWeight: m.kind === "birdie" ? 500 : 700 }}>
+                {m.kind === "hio" ? "🎯 " : m.kind === "eagle" ? "🦅 " : ""}{m.text}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── The recap chips ──
+          Each is dropped rather than dashed when the round can't answer it. */}
+      {recap.anyStarted && view !== "weekend" && (
+        <div style={{ display: "flex", gap: "6px", padding: "9px 14px 0" }}>
+          {recap.lowNet && (
+            <Chip k={recap.lowNet.complete ? "Low round" : "Low · out there"}
+              v={recap.lowNet.player.name.split(" ")[0]}
+              s={fmtToPar(recap.lowNet.netToPar)} />
+          )}
+          {recap.mostBirdies && (
+            <Chip k={recap.mostBirdies.count === 1 ? "Birdie" : "Most birdies"}
+              v={recap.mostBirdies.players.map((p) => p.name.split(" ")[0]).join(", ")}
+              s={String(recap.mostBirdies.count)} />
+          )}
+          {recap.margin && (
+            /* "by 2" rather than "+2" — next to a name, a signed number reads
+               as that player's score, which is the one thing it isn't. */
+            <Chip hot={recap.margin.shots <= 1}
+              k={recap.margin.shots === 0 ? "Tied up top" : "Leads"}
+              v={recap.margin.leader.name.split(" ")[0]}
+              s={recap.margin.shots === 0 ? "T" : `by ${recap.margin.shots}`} />
+          )}
+        </div>
+      )}
 
       <div style={{ display: "flex", padding: "9px 14px 0", gap: "6px" }}>
         {[["today", "Today"], ["weekend", "Weekend"], ["gross", "Gross"]].map(([id, label]) => (
@@ -207,6 +251,23 @@ export default function LiveScreen({ event, library, meId: meIdProp, weekendLabe
       </div>
 
       <style>{`@keyframes poPulse{70%{box-shadow:0 0 0 7px rgba(255,91,82,0)}100%{box-shadow:0 0 0 0 rgba(255,91,82,0)}}`}</style>
+    </div>
+  );
+}
+
+/** One recap chip: what it measures, who holds it, and the number. */
+function Chip({ k, v, s, hot }) {
+  return (
+    <div style={{
+      flex: 1, minWidth: 0, padding: "7px 9px", borderRadius: "8px",
+      background: hot ? "rgba(31,122,72,.28)" : "rgba(255,255,255,.055)",
+      border: `1px solid ${hot ? "rgba(95,212,147,.35)" : "transparent"}`,
+    }}>
+      <div style={{ fontSize: "9px", fontWeight: 700, letterSpacing: ".07em", textTransform: "uppercase", color: DIM, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{k}</div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: "5px", marginTop: "2px" }}>
+        <span style={{ fontSize: "13px", fontWeight: 700, color: INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v}</span>
+        <span style={{ fontSize: "11px", fontWeight: 700, color: UNDER, marginLeft: "auto", fontVariantNumeric: "tabular-nums" }}>{s}</span>
+      </div>
     </div>
   );
 }
