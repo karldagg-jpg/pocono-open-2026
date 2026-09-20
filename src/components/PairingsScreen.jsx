@@ -1,29 +1,34 @@
 import { useState } from "react";
 import { CARD, CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
 import { autoPairRound3 } from "../lib/golfLogic";
+import { groupList, toPairingsObject, addToGroup, removeFromGroups, unassignedPlayers, groupsNeeded, autoPair, DEFAULT_GROUP_SIZE } from "../lib/pairings";
 
 export default function PairingsScreen({ event, saveEvent }) {
   const players = event.players || [];
   const pairings = event.pairings || {};
   const [activeRound, setActiveRound] = useState(1);
-  // Pairings stored as object { 0: [ids], 1: [ids], 2: [ids] } (Firestore doesn't allow nested arrays)
-  const groupsObj = pairings[activeRound] || {};
-  const groups = [groupsObj[0] || [], groupsObj[1] || [], groupsObj[2] || []];
+  // Pairings stored as { [groupIndex]: [ids] } — Firestore disallows nested arrays.
+  // Group count follows the field: enough groups of four for everyone, and at
+  // least as many as are already saved.
+  const saved = groupList(pairings, activeRound);
+  const needed = Math.max(groupsNeeded(players.length, DEFAULT_GROUP_SIZE), saved.length, 1);
+  const groups = Array.from({ length: needed }, (_, i) => saved[i] || []);
+  const unassigned = unassignedPlayers(players, pairings, activeRound);
 
-  // All player ids not yet assigned in this round
-  const assigned = new Set(groups.flat());
-  const unassigned = players.filter((p) => !assigned.has(p.id));
-
-  function assignToGroup(pid, groupIdx) {
-    const next = groups.map((g) => g.filter((id) => id !== pid));
-    if (groupIdx !== null) next[groupIdx] = [...next[groupIdx], pid];
-    const nextObj = { 0: next[0], 1: next[1], 2: next[2] };
-    const newPairings = { ...pairings, [activeRound]: nextObj };
+  function persist(next) {
+    const newPairings = { ...pairings, [activeRound]: toPairingsObject(next) };
     saveEvent({ ...event, pairings: newPairings }, { pairings: newPairings });
   }
 
+  function assignToGroup(pid, groupIdx) {
+    persist(groupIdx === null ? removeFromGroups(groups, pid) : addToGroup(groups, groupIdx, pid));
+  }
+
   function autoFill() {
-    const auto = autoPairRound3(event); // already returns object format
+    // Round 3 keeps its leaderboard-based pairing; other rounds spread handicaps.
+    const auto = String(activeRound) === "3"
+      ? autoPairRound3(event)
+      : toPairingsObject(autoPair(players, { order: "snake" }));
     const newPairings = { ...pairings, [activeRound]: auto };
     saveEvent({ ...event, pairings: newPairings }, { pairings: newPairings });
   }
@@ -78,7 +83,7 @@ export default function PairingsScreen({ event, saveEvent }) {
 
       {/* Groups */}
       <div style={{ display: "grid", gap: "10px", marginBottom: "18px" }}>
-        {[0, 1, 2].map((gi) => (
+        {groups.map((_, gi) => (
           <div key={gi} style={{ background: CARD2, border: `1px solid ${GOLD}22`, borderRadius: "12px", padding: "14px" }}>
             <div style={{ fontSize: "11px", color: M, letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600, marginBottom: "10px" }}>
               Group {gi + 1}
@@ -109,7 +114,7 @@ export default function PairingsScreen({ event, saveEvent }) {
             {unassigned.map((p) => (
               <div key={p.id} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                 <div style={{ flex: 1, fontSize: "14px", color: M }}>{p.name} <span style={{ color: GOLD, fontSize: "12px" }}>{p.hcpIndex.toFixed(1)}</span></div>
-                {[0, 1, 2].map((gi) => (
+                {groups.map((_, gi) => (
                   <button
                     key={gi}
                     onClick={() => assignToGroup(p.id, gi)}

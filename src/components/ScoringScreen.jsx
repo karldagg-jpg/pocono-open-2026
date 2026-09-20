@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { CARD, CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
 import { getEffectiveHcp, strokesOnHole, netHole, totalPar } from "../lib/golfLogic";
+import { groupList } from "../lib/pairings";
 import { savePlayerScore, saveRoundCourse } from "../firebase/client";
 
 const LOST_BALL_SECS = 180;
@@ -177,9 +178,9 @@ export default function ScoringScreen({ event, saveEvent, library }) {
 
   const groupsObj = pairings[activeRound] || {};
   const hasGroups = Object.keys(groupsObj).length > 0;
-  const groups = hasGroups
-    ? [groupsObj[0] || [], groupsObj[1] || [], groupsObj[2] || []]
-    : [players.map((p) => p.id)];
+  // However many groups the round actually has — reading 0,1,2 by hand silently
+  // dropped the fourth group once the field grew past twelve.
+  const groups = hasGroups ? groupList(pairings, activeRound) : [players.map((p) => p.id)];
   const groupPlayers = (groups[activeGroup] || [])
     .map((id) => players.find((p) => p.id === id))
     .filter(Boolean);
