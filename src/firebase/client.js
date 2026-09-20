@@ -56,6 +56,18 @@ export async function saveLibrary(library) {
   await setDoc(LIBRARY_DOC, library);
 }
 
+// Casual games — sixies played outside any weekend. Kept in the weekends
+// collection for the same reason as the library: it inherits the security rules.
+export const CASUAL_DOC = doc(db, "weekends", "_casual");
+
+export function subscribeCasual(cb) {
+  return onSnapshot(CASUAL_DOC, (s) => cb(s.exists() ? s.data() : {}), () => cb({}));
+}
+
+export async function saveCasual(all) {
+  await setDoc(CASUAL_DOC, all);
+}
+
 // Write a single player's scores for a round using dot-notation field path.
 // This is concurrent-safe: two people scoring different players won't collide.
 export async function savePlayerScore(roundNum, playerId, scores, courseId) {

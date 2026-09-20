@@ -47,10 +47,13 @@ const NINES = {
   back:  { label: "Back 9",  holes: [9, 10, 11, 12, 13, 14, 15, 16, 17] },
 };
 
-export default function SixiesScreen({ event, saveEvent, library }) {
-  const players = event.players || [];
-  const courses = { ...(event.courses || {}), ...library };
-  const sx = event.sixies || {};
+// Renders a sixies game from wherever it lives. Inside a weekend it reads
+// event.sixies; a casual game passes its own players/courses/state instead, so
+// the same screen serves both without knowing the difference.
+export default function SixiesScreen({ event, saveEvent, library, players: playersProp, courses: coursesProp, sixies: sixiesProp, saveSixies }) {
+  const players = playersProp || event?.players || [];
+  const courses = coursesProp || { ...(event?.courses || {}), ...library };
+  const sx = sixiesProp || event?.sixies || {};
 
   // ── Config (persisted in event.sixies) ──────────────────────────────────────
   const courseKeys = Object.keys(courses);
@@ -68,6 +71,7 @@ export default function SixiesScreen({ event, saveEvent, library }) {
 
   const persist = (partial) => {
     const next = { courseId, game, playerIds, scores, takes, stakes, junk, ...partial };
+    if (saveSixies) { saveSixies(next); return; }
     saveEvent({ ...event, sixies: next }, { sixies: next });
   };
   const setJunk = (partial) => persist({ junk: { ...junk, ...partial } });

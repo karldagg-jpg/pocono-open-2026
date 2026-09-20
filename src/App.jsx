@@ -14,6 +14,7 @@ import ReplayScreen from "./components/ReplayScreen";
 import ThursdayScreen from "./components/ThursdayScreen";
 import SixiesScreen from "./components/SixiesScreen";
 import LiveScreen from "./components/LiveScreen";
+import CasualScreen from "./components/CasualScreen";
 
 const TABS = [
   { id: "live",        label: "Live" },
@@ -28,6 +29,7 @@ const TABS = [
   { id: "setup",       label: "Players" },
   { id: "thursday",   label: "Thursday" },
   { id: "sixies",      label: "Sixies" },
+  { id: "casual",      label: "Casual" },
 ];
 
 const DEFAULT_EVENT = {
@@ -41,7 +43,7 @@ const DEFAULT_EVENT = {
 
 // Admin PIN — stored in Firestore as event.adminPin
 // Read-only screens (leaderboard, scatts, winnings) don't require PIN
-const READ_ONLY_SCREENS = ["live", "leaderboard", "scatts", "winnings"];
+const READ_ONLY_SCREENS = ["live", "leaderboard", "scatts", "winnings", "casual"];
 
 export default function App() {
   const [screen, setScreen] = useState("leaderboard");
@@ -311,6 +313,7 @@ export default function App() {
           {screen === "replay"      && <ReplayScreen      event={event} library={library} />}
           {screen === "thursday"    && <ThursdayScreen    event={event} saveEvent={saveEvent} />}
           {screen === "sixies"      && <SixiesScreen      event={event} saveEvent={saveEvent} library={library} />}
+          {screen === "casual"      && <CasualScreen      library={library} />}
         </div>
       )}
     </div>
