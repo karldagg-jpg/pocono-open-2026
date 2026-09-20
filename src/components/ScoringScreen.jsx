@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { CARD, CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
-import { getEffectiveHcp, strokesOnHole, netHole, totalPar } from "../lib/golfLogic";
+import { getEffectiveHcp, strokesOnHole, netHole, totalPar, gamblingPlayers } from "../lib/golfLogic";
 import { groupList } from "../lib/pairings";
+import { holeState, scattWorth, birdiePoolHole } from "../lib/holeMoney";
 import { savePlayerScore, saveRoundCourse } from "../firebase/client";
 
 const LOST_BALL_SECS = 180;
@@ -171,6 +172,18 @@ export default function ScoringScreen({ event, saveEvent, library }) {
   const [ctpFt, setCtpFt] = useState("");
   const [ctpIn, setCtpIn] = useState("");
   const [showCtpLog, setShowCtpLog] = useState(false);
+  // On-course mode: the full scorecard is for the clubhouse. Walking down the
+  // fairway you want this hole and nothing else. Remembered per phone, because
+  // whoever keeps the card wants it on every time they pick the phone up.
+  const [onCourse, setOnCourse] = useState(() => {
+    try { return localStorage.getItem("pocono:onCourse") === "1"; } catch { return false; }
+  });
+  function toggleOnCourse() {
+    setOnCourse((v) => {
+      try { localStorage.setItem("pocono:onCourse", v ? "0" : "1"); } catch {}
+      return !v;
+    });
+  }
 
   const round = rounds[activeRound] || {};
   const course = courses[round.courseId || activeRound];
@@ -354,8 +367,20 @@ export default function ScoringScreen({ event, saveEvent, library }) {
 
   return (
     <div style={{ maxWidth: "900px", margin: "0 auto", padding: "22px 14px", paddingBottom: "90px" }}>
-      <div style={{ fontFamily: FD, fontSize: "28px", fontWeight: 600, color: CREAM, marginBottom: "4px" }}>
-        Scoring
+      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
+        <div style={{ fontFamily: FD, fontSize: "28px", fontWeight: 600, color: CREAM }}>
+          Scoring
+        </div>
+        <button onClick={toggleOnCourse}
+          style={{
+            marginLeft: "auto", padding: "6px 12px", borderRadius: "999px", cursor: "pointer",
+            fontFamily: FB, fontSize: "12px", fontWeight: 600, touchAction: "manipulation",
+            border: `1px solid ${onCourse ? G : "#c8d0c8"}`,
+            background: onCourse ? G : "transparent",
+            color: onCourse ? "#fff" : M,
+          }}>
+          {onCourse ? "● On course" : "On course"}
+        </button>
       </div>
 
       {/* Round tabs */}
@@ -509,6 +534,62 @@ export default function ScoringScreen({ event, saveEvent, library }) {
             </div>
           )}
 
+          {/* ── What's on this hole ──
+              The scorecard says what happened. This says what's at stake right
+              now: who's leading the hole, whether it's heading for a push, and
+              what a scat is currently worth. */}
+          {onCourse && course && (() => {
+            const hs = holeState(groupPlayers, course, scores, activeHole, useIndex);
+            const bp = birdiePoolHole(groupPlayers, course, scores, activeHole);
+            const scattPot = games?.scatts?.potByRound?.[activeRound]
+              ?? (games?.scatts?.pot ? games.scatts.pot / 3 : 0);
+            const worth = scattPot
+              ? scattWorth(scores, course, gamblingPlayers(event), scattPot, useIndex)
+              : null;
+
+            const lead = hs.leaders.length === 1 ? hs.leaders[0] : null;
+            const first = (r) => r.player.name.split(" ")[0];
+            // "Leads" and "wins it" are different claims, and so are "heading
+            // for a push" and "pushed" — the difference is whether every card
+            // is in, which is exactly what someone standing on the green needs.
+            const headline = lead
+              ? `${first(lead)} ${hs.settled ? "wins it" : "leads"}`
+              : hs.posted === 0 ? "Nobody in yet"
+              : hs.leaders.length > 1
+                ? `${hs.settled ? "Pushed" : "Tied"} — ${hs.leaders.map(first).join(" & ")}`
+                : hs.settled ? "Pushed — nobody wins it" : "Heading for a push";
+            const tone = lead && hs.settled ? G : lead ? GO : M;
+
+            return (
+              <div style={{ background: CARD, border: `1px solid ${tone}55`, borderRadius: "12px", padding: "12px 14px", marginBottom: "12px" }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: "8px", flexWrap: "wrap" }}>
+                  <span style={{ fontSize: "11px", letterSpacing: ".08em", textTransform: "uppercase", color: M, fontWeight: 600 }}>
+                    Hole {hs.hole} · Par {hs.par} · SI {hs.si}
+                  </span>
+                  <span style={{ marginLeft: "auto", fontSize: "15px", fontWeight: 700, color: tone }}>{headline}</span>
+                </div>
+
+                {worth && (
+                  <div style={{ fontSize: "12px", color: M, marginTop: "6px", lineHeight: 1.5 }}>
+                    {worth.scatts > 0
+                      ? <>Scats are worth <strong style={{ color: GO }}>${Math.round(worth.valueNow)}</strong> each
+                          if the round ended now — {worth.scatts} won, {worth.pushes} pushed.
+                          One more and they drop to ${Math.round(worth.valueIfOneMoreScatt)}.</>
+                      : <>No scats won yet — all ${scattPot} is still out there.</>}
+                  </div>
+                )}
+
+                {bp.events.length > 0 && (
+                  <div style={{ fontSize: "12px", color: GO, marginTop: "5px" }}>
+                    {bp.events.map((e, i) => (
+                      <span key={i}>{i > 0 ? " · " : ""}{e.player.name.split(" ")[0]} {e.type} — collects ${e.collects}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           {/* Player stepper cards */}
           <div style={{
             display: "grid",
@@ -653,7 +734,8 @@ export default function ScoringScreen({ event, saveEvent, library }) {
             </div>
           )}
 
-          {/* Full scorecard grid */}
+          {/* Full scorecard grid — the clubhouse view, hidden while on course */}
+          {!onCourse && (
           <div className="card2">
             <div className="scorecard-wrap">
               <table className="scorecard">
@@ -777,6 +859,7 @@ export default function ScoringScreen({ event, saveEvent, library }) {
               Tap a hole to navigate · Net = Gross − Index · • = stroke hole · B/E/HIO = gross achievement
             </div>
           </div>
+          )}
         </>
       ) : (
         <div style={{ textAlign: "center", color: M, padding: "40px 0", fontSize: "14px" }}>
