@@ -3,6 +3,7 @@ import { CARD, CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/them
 import { getEffectiveHcp, strokesOnHole, netHole, totalPar, gamblingPlayers } from "../lib/golfLogic";
 import { groupList } from "../lib/pairings";
 import { holeState, scattWorth, birdiePoolHole } from "../lib/holeMoney";
+import { playersAtRound, lockStatus, lockRound, unlockRound } from "../lib/handicapLock";
 import { savePlayerScore, saveRoundCourse } from "../firebase/client";
 
 const LOST_BALL_SECS = 180;
@@ -208,9 +209,11 @@ export default function ScoringScreen({ event, saveEvent, library }) {
   // However many groups the round actually has — reading 0,1,2 by hand silently
   // dropped the fourth group once the field grew past twelve.
   const groups = hasGroups ? groupList(pairings, activeRound) : [players.map((p) => p.id)];
-  const groupPlayers = (groups[activeGroup] || [])
-    .map((id) => players.find((p) => p.id === id))
-    .filter(Boolean);
+  // Resolved against the round's handicap lock, so the strokes shown on the tee
+  // are the strokes the scats and low net will actually be settled on.
+  const groupPlayers = playersAtRound(event, activeRound,
+    (groups[activeGroup] || []).map((id) => players.find((p) => p.id === id)).filter(Boolean));
+  const hcpLock = lockStatus(event, activeRound);
 
   async function setScore(pid, holeIdx, val) {
     const v = parseInt(val);
@@ -429,6 +432,49 @@ export default function ScoringScreen({ event, saveEvent, library }) {
             {course.name} · Par {totalPar(course)} · Slope {course.slope} · Rating {course.rating}
           </div>
 
+          {/* ── Handicap lock ──
+              Without this a round re-scores itself whenever someone's index
+              moves — Steve played the 2026 weekend off 15 and is an 11 now, so
+              re-opening it would shift his net, the leaderboard, and the money.
+              Locking pins the round to the indexes it was played off. */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap",
+            background: hcpLock.locked ? `${G}0e` : "rgba(0,0,0,0.03)",
+            border: `1px solid ${hcpLock.locked ? G + "44" : "#d8dcd8"}`,
+            borderRadius: "10px", padding: "9px 12px", marginBottom: "14px",
+          }}>
+            <div style={{ flex: 1, minWidth: "160px" }}>
+              <div style={{ fontSize: "12px", fontWeight: 700, color: hcpLock.locked ? G : M }}>
+                {hcpLock.locked ? `Handicaps locked · ${hcpLock.count} players` : "Handicaps not locked"}
+              </div>
+              <div style={{ fontSize: "11px", color: M, marginTop: "2px", lineHeight: 1.45 }}>
+                {hcpLock.locked
+                  ? hcpLock.drifted.length
+                    ? `${hcpLock.drifted.map(d => `${d.player.name.split(" ")[0]} played off ${d.playedOff}, now ${d.nowIs}`).join(" · ")} — this round still uses what they played off.`
+                    : "This round is pinned to the indexes it was played off."
+                  : "Scores follow whatever index each player carries today. Lock it once everyone's index is right."}
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                if (hcpLock.locked) {
+                  if (!window.confirm("Unlock? This round will go back to following today's indexes, which can change net scores and the money.")) return;
+                  saveEvent(unlockRound(event, activeRound));
+                } else {
+                  saveEvent(lockRound(event, activeRound));
+                }
+              }}
+              style={{
+                padding: "7px 13px", borderRadius: "8px", cursor: "pointer", touchAction: "manipulation",
+                border: `1px solid ${hcpLock.locked ? "#c8d0c8" : G}`,
+                background: hcpLock.locked ? "transparent" : G,
+                color: hcpLock.locked ? M : "#fff",
+                fontFamily: FB, fontSize: "12px", fontWeight: 600,
+              }}>
+              {hcpLock.locked ? "Unlock" : "Lock round"}
+            </button>
+          </div>
+
           {/* Group selector */}
           {groups.length > 1 && (
             <div style={{ display: "flex", gap: "6px", marginBottom: "14px" }}>
@@ -558,7 +604,7 @@ export default function ScoringScreen({ event, saveEvent, library }) {
             const scattPot = games?.scatts?.potByRound?.[activeRound]
               ?? (games?.scatts?.pot ? games.scatts.pot / 3 : 0);
             const worth = scattPot
-              ? scattWorth(scores, course, gamblingPlayers(event), scattPot, useIndex)
+              ? scattWorth(scores, course, playersAtRound(event, activeRound, gamblingPlayers(event)), scattPot, useIndex)
               : null;
 
             const lead = hs.leaders.length === 1 ? hs.leaders[0] : null;

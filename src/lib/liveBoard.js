@@ -9,6 +9,7 @@
 // the strokes that actually land on the holes played, which is what a scorecard
 // does and what the finished round will agree with.
 import { strokesOnHole, totalPar, getEffectiveHcp } from "./golfLogic";
+import { playersAtRound } from "./handicapLock";
 
 /** Holes a player has a score on — the furthest hole reached, not the count. */
 export function holesThrough(scores) {
@@ -88,7 +89,9 @@ export function liveRound(event, roundId) {
   const course = courses[round.courseId];
   if (!course) return null;
   const useIndex = games?.useIndexHcp !== false;
-  const states = players.map(p =>
+  // A locked round keeps the indexes it was played off, so an old board doesn't
+  // re-rank itself every time someone's index moves.
+  const states = playersAtRound(event, roundId, players).map(p =>
     playerRoundState(p, course, (round.scores || {})[p.id] || [], useIndex)
   );
   const started = states.filter(s => s.started);

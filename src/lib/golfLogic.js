@@ -1,3 +1,5 @@
+import { playersAtRound } from "./handicapLock";
+
 // ── Handicap ──────────────────────────────────────────────────────────────────
 export function courseHandicap(index, slope, rating, totalPar) {
   return Math.round(index * (slope / 113) + (rating - totalPar));
@@ -181,7 +183,8 @@ export function calcLeaderboard(event) {
         if (!course) { roundNets.push(null); roundGross.push(null); return; }
         const scores = (round.scores || {})[p.id];
         if (!scores || scores.filter(Boolean).length < 18) { roundNets.push(null); roundGross.push(null); return; }
-        const chcp  = getEffectiveHcp(p, course, useIndex);
+        // Score the round off the index it was played off, not today's.
+        const chcp  = getEffectiveHcp(playersAtRound(event, rNum, [p])[0], course, useIndex);
         const gross = scores.reduce((a, b) => a + (b || 0), 0);
         roundNets.push(gross - chcp);
         roundGross.push(gross);
@@ -325,7 +328,7 @@ export function calcWinnings(event) {
       scattsBuyIn = weekendBuyIn ? weekendBuyIn / 3 : buyIn;
     }
 
-    const { holeWinners, scattValue } = calcScatts(round.scores || {}, course, players, scattsBuyIn, useIndex);
+    const { holeWinners, scattValue } = calcScatts(round.scores || {}, course, playersAtRound(event, rNum, players), scattsBuyIn, useIndex);
     Object.entries(holeWinners).forEach(([pid, scatts]) => {
       const id = Number(pid);
       if (winnings[id]) winnings[id].scatts += Math.round(scatts * scattValue);
