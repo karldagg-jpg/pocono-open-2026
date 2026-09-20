@@ -6,7 +6,7 @@
 // This nets winnings against what each player actually staked, and reports the
 // reconciliation rather than hiding it: if the pots don't add up to the money
 // collected, that gap is shown instead of being quietly absorbed.
-import { calcWinnings, calcBirdiePool, gamblingPlayers, birdiePoolPlayers } from "./golfLogic";
+import { calcWinnings, calcBirdiePool, gamblingPlayers, birdiePoolPlayers } from "./golfLogic.js";
 
 /** Total of every configured pot, which is what the buy-ins are meant to fund. */
 export function totalPots(event) {

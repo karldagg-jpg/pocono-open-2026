@@ -5,8 +5,8 @@
 //
 // Everything here reads only what's on the cards. Nothing is estimated, and a
 // quiet round honestly produces an empty strip rather than invented drama.
-import { liveRound } from "./liveBoard";
-import { getEffectiveHcp, strokesOnHole } from "./golfLogic";
+import { liveRound } from "./liveBoard.js";
+import { getEffectiveHcp, strokesOnHole } from "./golfLogic.js";
 
 /** Every gross achievement on a round's cards, in the order they were made. */
 export function roundMoments(event, roundId) {

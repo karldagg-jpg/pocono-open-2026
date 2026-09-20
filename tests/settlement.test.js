@@ -203,7 +203,7 @@ describe("settleWeekend — the real 2026 weekend", () => {
   });
 
   it("leaves only four players genuinely up on the weekend", () => {
-    expect(s.rows.filter(r => r.net > 0).map(r => r.player.name)).toEqual(["Karl", "Jake", "Jeff", "Steve"]);
+    expect(s.rows.filter(r => r.net > 0).map(r => r.player.name)).toEqual(["Steve", "Karl", "Jake", "Jeff"]);
     expect(s.rows.filter(r => r.net < 0)).toHaveLength(8);
   });
 

@@ -8,8 +8,8 @@
 // stroke holes has used more of their handicap than the clock suggests. We count
 // the strokes that actually land on the holes played, which is what a scorecard
 // does and what the finished round will agree with.
-import { strokesOnHole, totalPar, getEffectiveHcp } from "./golfLogic";
-import { playersAtRound } from "./handicapLock";
+import { strokesOnHole, totalPar, getEffectiveHcp } from "./golfLogic.js";
+import { playersAtRound } from "./handicapLock.js";
 
 /** Holes a player has a score on — the furthest hole reached, not the count. */
 export function holesThrough(scores) {

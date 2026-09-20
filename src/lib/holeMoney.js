@@ -7,7 +7,7 @@
 // scat, which means every push makes each remaining scat worth MORE, since the
 // pot is divided by however many scats the round ends up producing. That's the
 // bit players get wrong, so it's stated rather than implied.
-import { getEffectiveHcp, strokesOnHole, calcScatts } from "./golfLogic";
+import { getEffectiveHcp, strokesOnHole, calcScatts } from "./golfLogic.js";
 
 export const BIRDIE_RATES = { birdie: 1, eagle: 5, hio: 10 };
 

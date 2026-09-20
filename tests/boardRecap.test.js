@@ -152,7 +152,7 @@ describe("boardRecap", () => {
   it("reads the real round 3 without inventing anything", () => {
     const r = boardRecap(POCONO, 3);
     expect(r.anyStarted).toBe(true);
-    expect(r.lowNet.player.name).toBe("Jake");   // Jake won the weekend
+    expect(r.lowNet.player.name).toBe("Steve");  // Steve took round 3
     expect(r.margin.shots).toBeGreaterThanOrEqual(0);
     expect(r.mostBirdies.count).toBeGreaterThan(0);
   });

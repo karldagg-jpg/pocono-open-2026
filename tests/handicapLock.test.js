@@ -214,30 +214,41 @@ describe("lockPlayedRounds", () => {
   });
 });
 
-describe("the real 2026 weekend", () => {
-  it("has no locks — every result is still computed off today's indexes", () => {
-    for (const id of Object.keys(POCONO.rounds)) expect(lockedIndexes(POCONO, id)).toBeNull();
+describe("the real 2026 weekend — finalized 2026-09-20", () => {
+  it("has all three rounds locked, the whole field on each", () => {
+    for (const id of Object.keys(POCONO.rounds)) {
+      const s = lockStatus(POCONO, id);
+      expect(s.locked).toBe(true);
+      expect(s.count).toBe(12);
+    }
   });
 
-  it("re-scores itself if an index is edited, which is the bug", () => {
-    const before = calcLeaderboard(POCONO).map(r => r.player.name);
+  it("no longer re-scores itself when an index is edited — the bug is shut", () => {
+    const before = calcLeaderboard(POCONO).map(r => [r.player.name, r.total]);
     const edited = JSON.parse(JSON.stringify(POCONO));
-    edited.players.find(p => p.name === "Steve").hcpIndex = 15;
-    expect(calcLeaderboard(edited).map(r => r.player.name)).not.toEqual(before);
+    edited.players.find(p => p.name === "Steve").hcpIndex = 11.4;
+    expect(calcLeaderboard(edited).map(r => [r.player.name, r.total])).toEqual(before);
   });
 
-  it("stops moving once locked", () => {
-    const locked = lockPlayedRounds(JSON.parse(JSON.stringify(POCONO)));
-    const before = calcLeaderboard(locked).map(r => [r.player.name, r.total]);
-    locked.players.find(p => p.name === "Steve").hcpIndex = 15;
-    expect(calcLeaderboard(locked).map(r => [r.player.name, r.total])).toEqual(before);
+  it("holds Steve at what he played off, whatever the roster now says", () => {
+    const sid = POCONO.players.find(p => p.name === "Steve").id;
+    for (const id of Object.keys(POCONO.rounds)) expect(lockedIndexes(POCONO, id)[sid]).toBe(14);
   });
 
-  it("locking changes nothing on its own", () => {
-    // Locking today's indexes must reproduce today's results exactly.
-    const locked = lockPlayedRounds(JSON.parse(JSON.stringify(POCONO)));
-    expect(calcLeaderboard(locked).map(r => [r.player.name, r.total]))
+  it("re-locking is a no-op — an existing lock is never overwritten", () => {
+    const again = lockPlayedRounds(JSON.parse(JSON.stringify(POCONO)));
+    expect(calcLeaderboard(again).map(r => [r.player.name, r.total]))
       .toEqual(calcLeaderboard(POCONO).map(r => [r.player.name, r.total]));
-    expect(JSON.stringify(calcWinnings(locked))).toBe(JSON.stringify(calcWinnings(POCONO)));
+    expect(JSON.stringify(calcWinnings(again))).toBe(JSON.stringify(calcWinnings(POCONO)));
+  });
+
+  it("would have paid the same off 15 as off the locked 14", () => {
+    // Steve actually played the May weekend off 15. The extra stroke changes no
+    // scat and no low-net position, so the locked 14 settles identically — which
+    // is why finalizing at 14 was safe rather than merely convenient.
+    const sid = POCONO.players.find(p => p.name === "Steve").id;
+    let at15 = JSON.parse(JSON.stringify(POCONO));
+    for (const id of Object.keys(at15.rounds)) at15 = setLockedIndex(at15, id, sid, 15);
+    expect(JSON.stringify(calcWinnings(at15))).toBe(JSON.stringify(calcWinnings(POCONO)));
   });
 });

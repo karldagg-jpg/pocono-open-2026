@@ -1,4 +1,4 @@
-import { playersAtRound } from "./handicapLock";
+import { playersAtRound } from "./handicapLock.js";
 
 // ── Handicap ──────────────────────────────────────────────────────────────────
 export function courseHandicap(index, slope, rating, totalPar) {
