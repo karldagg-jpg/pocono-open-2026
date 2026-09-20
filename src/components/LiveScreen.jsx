@@ -15,11 +15,26 @@ const GOLDL = "#c6a44e";
 const UNDER = "#5fd493";
 const OVER = "#f0a0a0";
 const HILITE = "rgba(31,122,72,.22)";
+// Alternating bands are what make this read as a green board rather than a
+// black one — on a flat ground the club green disappears into near-black.
+const BAND = "rgba(31,122,72,.10)";
 
 const fmtToPar = (n) => (n === 0 ? "E" : n > 0 ? `+${n}` : `${n}`);
 const scoreColor = (n) => (n < 0 ? UNDER : n === 0 ? INK : OVER);
 
-export default function LiveScreen({ event, library, meId, weekendLabel }) {
+export default function LiveScreen({ event, library, meId: meIdProp, weekendLabel }) {
+  // The app has no sign-in, so the board asks once who's looking and remembers
+  // it. Without this the "your row" highlight could never fire.
+  const [pickedMe, setPickedMe] = useState(() => {
+    try { const v = localStorage.getItem("pocono:meId"); return v ? Number(v) : null; } catch { return null; }
+  });
+  const meId = meIdProp ?? pickedMe;
+  function pickMe(v) {
+    const id = v ? Number(v) : null;
+    setPickedMe(id);
+    try { id ? localStorage.setItem("pocono:meId", String(id)) : localStorage.removeItem("pocono:meId"); } catch {}
+  }
+
   // The stored event doc has no name field, so fall back to the index label.
   const title = event.name || weekendLabel || "Leaderboard";
   const courses = useMemo(() => ({ ...(event.courses || {}), ...library }), [event.courses, library]);
@@ -135,7 +150,7 @@ export default function LiveScreen({ event, library, meId, weekendLabel }) {
         <span style={{ width: "16px" }} />
       </div>
 
-      {rows.map((r) => {
+      {rows.map((r, i) => {
         const d = delta[r.player.id] || 0;
         const me = meId && r.player.id === meId;
         return (
@@ -143,7 +158,7 @@ export default function LiveScreen({ event, library, meId, weekendLabel }) {
             style={{
               display: "flex", alignItems: "center", gap: "10px",
               padding: "9px 14px", borderTop: `1px solid ${LINE}`,
-              background: me ? HILITE : "transparent",
+              background: me ? HILITE : i % 2 ? BAND : "transparent",
               opacity: r.started ? 1 : 0.45,
             }}>
             <div style={{ width: "26px", fontSize: "15px", fontWeight: 800, fontVariantNumeric: "tabular-nums", color: GOLDL }}>
@@ -176,6 +191,19 @@ export default function LiveScreen({ event, library, meId, weekendLabel }) {
           ? "Gross to par over holes played."
           : "Net to par — handicap strokes counted on the holes actually played."}
         {view !== "weekend" && round && ` · ${round.playersStarted} of ${rows.length} started`}
+        <div style={{ marginTop: "7px", display: "flex", alignItems: "center", gap: "7px" }}>
+          <span>You</span>
+          <select value={meId ?? ""} onChange={(e) => pickMe(e.target.value)}
+            style={{
+              background: "rgba(255,255,255,.07)", color: MUTED, border: `1px solid ${LINE}`,
+              borderRadius: "6px", padding: "3px 6px", fontSize: "11px", outline: "none",
+            }}>
+            <option value="">nobody</option>
+            {(event.players || []).map((p) => (
+              <option key={p.id} value={p.id} style={{ color: "#000" }}>{p.name}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <style>{`@keyframes poPulse{70%{box-shadow:0 0 0 7px rgba(255,91,82,0)}100%{box-shadow:0 0 0 0 rgba(255,91,82,0)}}`}</style>
