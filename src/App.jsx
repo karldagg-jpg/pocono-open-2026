@@ -15,6 +15,7 @@ import ThursdayScreen from "./components/ThursdayScreen";
 import SixiesScreen from "./components/SixiesScreen";
 import LiveScreen from "./components/LiveScreen";
 import CasualScreen from "./components/CasualScreen";
+import { cloneWeekend, describeClone } from "./lib/newWeekend";
 
 const TABS = [
   { id: "live",        label: "Live" },
@@ -98,11 +99,29 @@ export default function App() {
   }
 
   async function handleNewWeekend() {
-    const label = window.prompt("Name this weekend (e.g. \"Pocono Open 2027\"):");
+    const label = window.prompt("Name this weekend (e.g. \"Pinehurst 2027\"):");
     if (!label || !label.trim()) return;
+
+    // Starting blank meant retyping the whole field. Offer to carry the current
+    // weekend's players, games and buy-in instead, and say exactly what comes.
+    let next = { ...DEFAULT_EVENT, name: label.trim() };
+    const hasSource = (event?.players || []).length > 0;
+    if (hasSource) {
+      const d = describeClone(event, { label: label.trim() });
+      const games = d.gamesEnabled.length ? d.gamesEnabled.join(", ") : "none";
+      const carry = window.confirm(
+        `Carry over from "${event.name || weekendId}"?\n\n` +
+        `  ${d.players} players, with their indexes\n` +
+        `  games: ${games}\n` +
+        `  buy-in: $${d.buyIn}\n\n` +
+        `Scores, pairings, courses and sixies stay with the old weekend.\n\n` +
+        `OK to carry them over, Cancel to start empty.`
+      );
+      if (carry) next = cloneWeekend(event, { label: label.trim() });
+    }
+
     const id = `w_${Date.now().toString(36)}`;
-    const blank = { ...DEFAULT_EVENT, name: label.trim() };
-    await createWeekend(id, blank);
+    await createWeekend(id, next);
     await saveIndex({ ...weekendIndex, [id]: { label: label.trim(), archived: false } });
     switchWeekend(id);
   }
