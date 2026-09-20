@@ -187,12 +187,15 @@ export default function App() {
   const hasCourses = Object.keys(library).length > 0;
   const isSetupPhase = !hasPlayers || !hasCourses;
 
+  // Every id in TABS must appear in exactly one of these, or the screen is
+  // routed but unreachable — which is what happened to Live and Casual.
+  // tests/nav.test.js asserts it, so a new tab can't be added and forgotten.
   const PRIMARY = isSetupPhase
     ? ["setup", "courses", "games", "pairings", "thursday", "winnings"]
-    : ["leaderboard", "scoring", "scatts", "replay", "winnings", "thursday"];
+    : ["live", "leaderboard", "scoring", "scatts", "winnings", "thursday"];
   const MORE = isSetupPhase
-    ? ["leaderboard", "scoring", "scatts", "replay"]
-    : ["games", "sixies", "pairings", "courses", "setup"];
+    ? ["live", "leaderboard", "scoring", "scatts", "replay", "sixies", "casual"]
+    : ["replay", "games", "sixies", "pairings", "courses", "setup", "casual"];
 
   function syncAgo() {
     if (!lastSynced) return null;
