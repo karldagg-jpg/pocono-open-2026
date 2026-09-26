@@ -15,7 +15,8 @@ import ThursdayScreen from "./components/ThursdayScreen";
 import SixiesScreen from "./components/SixiesScreen";
 import LiveScreen from "./components/LiveScreen";
 import CasualScreen from "./components/CasualScreen";
-import { cloneWeekend, describeClone } from "./lib/newWeekend";
+import { cloneWeekend, blankRounds } from "./lib/newWeekend";
+import NewWeekendScreen from "./components/NewWeekendScreen";
 
 const TABS = [
   { id: "live",        label: "Live" },
@@ -50,6 +51,7 @@ export default function App() {
   const [screen, setScreen] = useState("leaderboard");
   const [event, setEvent] = useState(DEFAULT_EVENT);
   const [online, setOnline] = useState(navigator.onLine);
+  const [newWeekendOpen, setNewWeekendOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [lastSynced, setLastSynced] = useState(null);
@@ -98,31 +100,19 @@ export default function App() {
     setWeekendId(id);
   }
 
-  async function handleNewWeekend() {
-    const label = window.prompt("Name this weekend (e.g. \"Pinehurst 2027\"):");
-    if (!label || !label.trim()) return;
-
-    // Starting blank meant retyping the whole field. Offer to carry the current
-    // weekend's players, games and buy-in instead, and say exactly what comes.
-    let next = { ...DEFAULT_EVENT, name: label.trim() };
-    const hasSource = (event?.players || []).length > 0;
-    if (hasSource) {
-      const d = describeClone(event, { label: label.trim() });
-      const games = d.gamesEnabled.length ? d.gamesEnabled.join(", ") : "none";
-      const carry = window.confirm(
-        `Carry over from "${event.name || weekendId}"?\n\n` +
-        `  ${d.players} players, with their indexes\n` +
-        `  games: ${games}\n` +
-        `  buy-in: $${d.buyIn}\n\n` +
-        `Scores, pairings, courses and sixies stay with the old weekend.\n\n` +
-        `OK to carry them over, Cancel to start empty.`
-      );
-      if (carry) next = cloneWeekend(event, { label: label.trim() });
-    }
+  // A chain of window.prompt gave no way back and no sight of what you were
+  // agreeing to. NewWeekendScreen shows the whole decision at once.
+  async function createFromPlan({ label, roundCount, keepPlayers, keepGames, resetIndexes, expectedPlayers }) {
+    const next = (event?.players || []).length
+      ? cloneWeekend(event, { label, roundCount, keepPlayers, keepGames, resetIndexes })
+      : { ...DEFAULT_EVENT, name: label, rounds: blankRounds(roundCount) };
+    // Remembered so the readiness check knows what "the whole field" means.
+    next.expectedPlayers = expectedPlayers;
 
     const id = `w_${Date.now().toString(36)}`;
     await createWeekend(id, next);
-    await saveIndex({ ...weekendIndex, [id]: { label: label.trim(), archived: false } });
+    await saveIndex({ ...weekendIndex, [id]: { label, archived: false } });
+    setNewWeekendOpen(false);
     switchWeekend(id);
   }
 
@@ -242,7 +232,7 @@ export default function App() {
               </select>
               {authed && (
                 <>
-                  <button onClick={handleNewWeekend} title="New weekend"
+                  <button onClick={() => setNewWeekendOpen(true)} title="New weekend"
                     style={{ padding: "3px 9px", borderRadius: "6px", border: `1px solid ${G}55`, background: G + "18", color: G, fontFamily: FB, fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>
                     + New
                   </button>
@@ -323,7 +313,15 @@ export default function App() {
         </div>
       ) : (
         <div>
-          {screen === "setup"       && <SetupScreen      event={event} saveEvent={saveEvent} setAdminPin={setAdminPin} authed={authed} />}
+          {newWeekendOpen ? (
+            <NewWeekendScreen
+              source={event}
+              sourceLabel={(weekendIndex[weekendId] || {}).label}
+              onCreate={createFromPlan}
+              onCancel={() => setNewWeekendOpen(false)}
+            />
+          ) : (<>
+          {screen === "setup"       && <SetupScreen      event={event} saveEvent={saveEvent} setAdminPin={setAdminPin} authed={authed} library={library} />}
           {screen === "courses"     && <CourseScreen      event={event} saveEvent={saveEvent} library={library} />}
           {screen === "pairings"    && <PairingsScreen    event={event} saveEvent={saveEvent} />}
           {screen === "scoring"     && <ScoringScreen     event={event} saveEvent={saveEvent} library={library} />}
@@ -336,6 +334,7 @@ export default function App() {
           {screen === "thursday"    && <ThursdayScreen    event={event} saveEvent={saveEvent} />}
           {screen === "sixies"      && <SixiesScreen      event={event} saveEvent={saveEvent} library={library} />}
           {screen === "casual"      && <CasualScreen      library={library} />}
+          </>)}
         </div>
       )}
     </div>

@@ -2,8 +2,13 @@ import { useState } from "react";
 import { BG, CARD, CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
 import { buildTestEvent } from "../lib/testData";
 import { resetEvent } from "../firebase/client";
+import { weekendReadiness, MISSING, WARN } from "../lib/weekendSetup";
 
-export default function SetupScreen({ event, saveEvent, setAdminPin, authed }) {
+export default function SetupScreen({ event, saveEvent, setAdminPin, authed, library = {} }) {
+  // The field used to be capped at twelve, which made a sixteen-player
+  // Pinehurst impossible to enter. The weekend now carries its own target and
+  // the cap is gone — the number is a goal to reach, not a wall.
+  const target = Number(event.expectedPlayers) || null;
   const players = event.players || [];
   const [name, setName] = useState("");
   const [hcpIndex, setHcpIndex] = useState("");
@@ -75,11 +80,45 @@ export default function SetupScreen({ event, saveEvent, setAdminPin, authed }) {
         Players
       </div>
       <div style={{ color: M, fontSize: "14px", marginBottom: "22px" }}>
-        {players.length}/12 players · USGA handicap indexes
+        {players.length}{target ? ` of ${target}` : ""} players · USGA handicap indexes
       </div>
 
+      {/* ── Readiness ──
+          The jobs that make up a weekend don't announce the ones you forget.
+          They turn up on the first tee, or in the settlement afterwards — 2026
+          collected $1,200 against $1,100 of pots and nobody noticed until the
+          money was being counted. */}
+      {(() => {
+        const r = weekendReadiness(event, library, { expectedPlayers: target });
+        if (!r.items.length) return null;
+        const tone = (lvl) => (lvl === MISSING ? R : lvl === WARN ? GO : G);
+        return (
+          <div style={{ background: CARD2, border: `1px solid ${r.ready ? G + "44" : R + "44"}`, borderRadius: "12px", padding: "14px", marginBottom: "18px" }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginBottom: "9px" }}>
+              <span style={{ fontSize: "11px", letterSpacing: ".08em", textTransform: "uppercase", fontWeight: 700, color: r.ready ? G : R }}>
+                {r.ready ? "Ready to play" : `${r.blockers.length} thing${r.blockers.length === 1 ? "" : "s"} to sort`}
+              </span>
+              {r.ready && r.warnings.length > 0 && (
+                <span style={{ fontSize: "11px", color: GO }}>· {r.warnings.length} worth a look</span>
+              )}
+            </div>
+            {r.items.map((i) => (
+              <div key={i.id} style={{ display: "flex", gap: "8px", padding: "5px 0", alignItems: "flex-start" }}>
+                <span style={{ color: tone(i.level), fontSize: "13px", lineHeight: 1.45, flexShrink: 0 }}>
+                  {i.level === MISSING ? "✕" : i.level === WARN ? "!" : "✓"}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: "13px", color: CREAM, fontWeight: i.level === MISSING ? 700 : 500 }}>{i.label}</div>
+                  {i.detail && <div style={{ fontSize: "11.5px", color: M, marginTop: "1px", lineHeight: 1.45 }}>{i.detail}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* Add player form */}
-      {players.length < 12 && (
+      {(
         <div style={{ background: CARD2, border: `1px solid ${GOLD}22`, borderRadius: "12px", padding: "14px", marginBottom: "18px" }}>
           <div style={{ fontSize: "11px", color: M, letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600, marginBottom: "10px" }}>
             Add Player
