@@ -31,6 +31,32 @@ export function staleOptOuts(event) {
 }
 
 /**
+ * Players staked into the games who turned in no card in any round.
+ *
+ * `playing` on a settlement row only means "not opted out" — it says nothing
+ * about whether anyone actually teed off. Russ sat in the 2026 archive staked
+ * $128 (the $100 buy-in, plus $28 of birdie pool paid out to the field) for a
+ * weekend he never played, and no screen said so. A roster entry added after
+ * the weekend is the usual cause.
+ *
+ * Only reported once the weekend has started — before the first card, nobody
+ * has one and flagging the whole field would say nothing.
+ */
+export function stakedWithoutCard(event) {
+  const ev = event || {};
+  const rounds = Object.values(ev.rounds || {});
+  const hasCard = (c) => (c || []).some((n) => Number(n) > 0);
+  const played = new Set();
+  for (const r of rounds) {
+    for (const [pid, card] of Object.entries(r?.scores || {})) {
+      if (hasCard(card)) played.add(String(pid));
+    }
+  }
+  if (!played.size) return [];
+  return gamblingPlayers(ev).filter((p) => !played.has(String(p.id)));
+}
+
+/**
  * Net position for every player.
  *
  * staked  — the weekend buy-in, for anyone not opted out
@@ -108,6 +134,7 @@ export function settleWeekend(event) {
       payoutDrift: paidOut - pots.total,
     },
     staleOptOuts: staleOptOuts(ev),
+    stakedWithoutCard: stakedWithoutCard(ev),
   };
 }
 

@@ -133,6 +133,28 @@ export default function WinningsScreen({ event, library }) {
           </div>
         )}
 
+        {/* Being on the roster and being in the game are different things, and
+            only one of them costs money. Russ sat in the 2026 books down $128
+            for a weekend he has no card in — worth asking about before anyone
+            settles up. */}
+        {settlement.stakedWithoutCard.length > 0 && (() => {
+          const ghosts = settlement.stakedWithoutCard
+            .map((p) => settlement.rows.find((r) => r.player.id === p.id))
+            .filter(Boolean);
+          const cost = ghosts.reduce((t, r) => t - r.net, 0);
+          return (
+            <div style={{ padding: "11px 14px", background: "rgba(176,58,46,0.06)", fontSize: "12px", color: M, lineHeight: 1.5 }}>
+              <div style={{ color: R, fontWeight: 600, marginBottom: "3px" }}>
+                {ghosts.length === 1 ? "A player with no card" : `${ghosts.length} players with no card`}
+              </div>
+              <strong style={{ color: CREAM }}>{ghosts.map((r) => r.player.name).join(", ")}</strong>
+              {ghosts.length === 1 ? " is" : " are"} in the money games but turned in no scorecard in any
+              round, and down <strong style={{ color: CREAM }}>${cost}</strong> as a result. If they weren't
+              in, remove them on Players; if they were, opt them out so no buy-in is charged.
+            </div>
+          );
+        })()}
+
         {settlement.staleOptOuts.length > 0 && (
           <div style={{ padding: "10px 14px", background: "rgba(201,168,76,0.05)", fontSize: "12px", color: M }}>
             {settlement.staleOptOuts.length} opt-out{settlement.staleOptOuts.length === 1 ? "" : "s"} left over from a player no longer on the roster. Harmless, but worth clearing on Players.

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "fs";
 import path from "path";
-import { settleWeekend, settlementTransfers, totalPots, staleOptOuts } from "../src/lib/settlement.js";
+import { settleWeekend, settlementTransfers, totalPots, staleOptOuts, stakedWithoutCard } from "../src/lib/settlement.js";
 
 const archive = JSON.parse(fs.readFileSync(path.join(process.cwd(), "archives/pocono-2026.json"), "utf8"));
 const POCONO = archive.event;
@@ -61,6 +61,69 @@ describe("staleOptOuts", () => {
 
   it("doesn't report the same id twice when it's in both lists", () => {
     expect(staleOptOuts(tinyEvent({ optOuts: [99], birdieOptOuts: [99] }))).toEqual([99]);
+  });
+});
+
+describe("stakedWithoutCard", () => {
+  const card = (n) => Array(18).fill(n);
+
+  it("names the real player who was staked for a weekend he never played", () => {
+    // Russ was added to the roster on 2026-07-31, ten weeks after the weekend
+    // was played, and has no card in any of the three rounds. The archive bills
+    // him $100 of buy-in that no pot pays out plus $28 of birdie pool.
+    expect(stakedWithoutCard(POCONO).map((p) => p.name)).toEqual(["Russ"]);
+  });
+
+  it("accounts for exactly the unallocated gap in the real weekend", () => {
+    const s = settleWeekend(POCONO);
+    const ghost = s.rows.find((r) => r.player.name === "Russ");
+    expect(ghost.staked).toBe(100);
+    expect(ghost.scatts + ghost.lowNet + ghost.ctp + ghost.hio).toBe(0);
+    expect(s.totals.unallocated).toBe(100);
+    expect(s.totals.unallocated).toBe(ghost.staked);
+  });
+
+  it("says nothing before anyone has teed off", () => {
+    // Everybody is cardless at this point; flagging the whole field is noise.
+    expect(stakedWithoutCard(tinyEvent())).toEqual([]);
+  });
+
+  it("names only the player missing a card once play has started", () => {
+    const ev = tinyEvent({ rounds: { 1: { courseId: "c1", scores: { 1: card(4), 2: card(5) } } } });
+    expect(stakedWithoutCard(ev).map((p) => p.name)).toEqual(["Cal"]);
+  });
+
+  it("counts a card from any round, not just the first", () => {
+    const ev = tinyEvent({
+      rounds: {
+        1: { courseId: "c1", scores: { 1: card(4), 2: card(5) } },
+        2: { courseId: "c1", scores: { 3: card(6) } },
+      },
+    });
+    expect(stakedWithoutCard(ev)).toEqual([]);
+  });
+
+  it("treats an all-zero card as no card", () => {
+    const ev = tinyEvent({ rounds: { 1: { courseId: "c1", scores: { 1: card(4), 2: card(5), 3: Array(18).fill(0) } } } });
+    expect(stakedWithoutCard(ev).map((p) => p.name)).toEqual(["Cal"]);
+  });
+
+  it("counts a partial card — nine holes in is still playing", () => {
+    const nine = [...Array(9).fill(4), ...Array(9).fill(null)];
+    const ev = tinyEvent({ rounds: { 1: { courseId: "c1", scores: { 1: card(4), 2: card(5), 3: nine } } } });
+    expect(stakedWithoutCard(ev)).toEqual([]);
+  });
+
+  it("ignores someone who opted out — they staked nothing, so nothing is at risk", () => {
+    const ev = tinyEvent({
+      optOuts: [3],
+      rounds: { 1: { courseId: "c1", scores: { 1: card(4), 2: card(5) } } },
+    });
+    expect(stakedWithoutCard(ev)).toEqual([]);
+  });
+
+  it("rides along on the settlement so a screen can show it", () => {
+    expect(settleWeekend(POCONO).stakedWithoutCard.map((p) => p.name)).toEqual(["Russ"]);
   });
 });
 
