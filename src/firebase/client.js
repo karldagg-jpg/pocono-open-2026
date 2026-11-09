@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, collection, updateDoc, setDoc, deleteDoc, serverTimestamp, onSnapshot } from "firebase/firestore";
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, collection, updateDoc, setDoc, deleteDoc, deleteField, getDoc, serverTimestamp, onSnapshot } from "firebase/firestore";
 import { getAuth, signInAnonymously } from "firebase/auth";
 
 const firebaseConfig = {
@@ -54,6 +54,33 @@ export function subscribeLibrary(cb) {
 // Full replace of the library catalog ({ [courseId]: {name, slope, rating, par, si} }).
 export async function saveLibrary(library) {
   await setDoc(LIBRARY_DOC, library);
+}
+
+// One course at a time, so two people editing different courses can't undo
+// each other. Falls back to creating the doc the very first time.
+export async function saveLibraryCourse(id, course) {
+  try {
+    await updateDoc(LIBRARY_DOC, { [id]: course });
+  } catch (e) {
+    if (e.code === "not-found") await setDoc(LIBRARY_DOC, { [id]: course });
+    else throw e;
+  }
+}
+
+export async function deleteLibraryCourse(id) {
+  await updateDoc(LIBRARY_DOC, { [id]: deleteField() });
+}
+
+// Read other weekends once, for the course history. Missing docs are skipped.
+export async function fetchWeekends(ids) {
+  const out = [];
+  for (const id of ids) {
+    try {
+      const s = await getDoc(weekendDoc(id));
+      if (s.exists()) out.push({ id, event: s.data() });
+    } catch { /* offline or no access — history just shows less */ }
+  }
+  return out;
 }
 
 // Casual games — sixies played outside any weekend. Kept in the weekends

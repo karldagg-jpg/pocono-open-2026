@@ -322,7 +322,7 @@ export default function App() {
             />
           ) : (<>
           {screen === "setup"       && <SetupScreen      event={event} saveEvent={saveEvent} setAdminPin={setAdminPin} authed={authed} library={library} />}
-          {screen === "courses"     && <CourseScreen      event={event} saveEvent={saveEvent} library={library} />}
+          {screen === "courses"     && <CourseScreen      event={event} saveEvent={saveEvent} library={library} weekendIndex={weekendIndex} weekendId={weekendId} />}
           {screen === "pairings"    && <PairingsScreen    event={event} saveEvent={saveEvent} />}
           {screen === "scoring"     && <ScoringScreen     event={event} saveEvent={saveEvent} library={library} />}
           {screen === "scatts"      && <ScattsScreen      event={event} library={library} />}
