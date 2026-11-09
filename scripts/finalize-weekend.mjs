@@ -17,7 +17,8 @@
  */
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
-import { getAuth, signInAnonymously } from "firebase/auth";
+import { getAuth } from "firebase/auth";
+import { signInAsOrganizer } from "./signInAsOrganizer.mjs";
 import { lockPlayedRounds, lockStatus } from "../src/lib/handicapLock.js";
 import { calcLeaderboard, calcWinnings } from "../src/lib/golfLogic.js";
 
@@ -29,7 +30,9 @@ if (!id) {
 }
 
 const app = initializeApp({ apiKey: "AIzaSyA0ubEbHoYbfCSjfNxHUkt_fr_6WMb3t5Y", projectId: "pvgc-league" });
-await signInAnonymously(getAuth(app)).catch(() => {});
+// Locking rounds and archiving are organizer changes; the database checks.
+// A dry run only reads, which anyone can.
+if (!dryRun) await signInAsOrganizer(getAuth(app));
 const db = getFirestore(app);
 
 const ref = doc(db, "weekends", id);
