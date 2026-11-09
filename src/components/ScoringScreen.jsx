@@ -8,8 +8,15 @@ import { savePlayerScore, saveRoundCourse } from "../firebase/client";
 import { roundIds, roundCount, isFinalRound } from "../lib/rounds";
 import { fmtIndex } from "../lib/format";
 import { coursesFor, freezeFields, withFrozenCourse } from "../lib/courses";
+import { pendingWrites } from "../lib/pendingWrites";
+import { firstOpenHole, autoAdvanceAction, holeComplete, holesDone } from "../lib/scoringFlow";
 
 const LOST_BALL_SECS = 180;
+
+const holeStep = {
+  width: "52px", height: "52px", borderRadius: "12px", border: "1px solid #c8d0c8", background: "#fff",
+  fontSize: "30px", lineHeight: 1, color: CREAM, cursor: "pointer", touchAction: "manipulation", fontFamily: FB,
+};
 
 // What you'd call the score out loud. Gross against par, so a stroke doesn't
 // turn a par into a birdie — the net figure sits beside it for that.
@@ -184,9 +191,19 @@ function LostBallTimer() {
 export default function ScoringScreen({ event, saveEvent, library }) {
   const { players = [], courses: eventCourses = {}, rounds = {}, pairings = {}, games = {} } = event;
   const courses = coursesFor(event, library);
-  const [activeRound, setActiveRound] = useState(1);
-  const [activeGroup, setActiveGroup] = useState(0);
+  // Which round and group this phone keeps the card for. Remembered, because
+  // the same person scores the same group all weekend and every reload used to
+  // drop them back on Group 1, hole 1.
+  const remembered = (() => { try { return JSON.parse(localStorage.getItem("pocono:scoring") || "{}"); } catch { return {}; } })();
+  const [activeRound, setActiveRound] = useState(() => (roundIds(event).includes(remembered.round) ? remembered.round : roundIds(event)[0]));
+  const [activeGroup, setActiveGroup] = useState(() => (Number.isInteger(remembered.group) ? remembered.group : 0));
   const [activeHole, setActiveHole] = useState(0); // 0-indexed
+  const [showSetup, setShowSetup] = useState(false);       // on course: round/group/holes panel
+  const [advancedFrom, setAdvancedFrom] = useState(null);  // hole we just moved on from
+  const advance = useRef({ timer: null, hole: null });
+  useEffect(() => {
+    try { localStorage.setItem("pocono:scoring", JSON.stringify({ round: activeRound, group: activeGroup })); } catch {}
+  }, [activeRound, activeGroup]);
   const [ctpFt, setCtpFt] = useState("");
   const [ctpIn, setCtpIn] = useState("");
   const [showCtpLog, setShowCtpLog] = useState(false);
@@ -215,7 +232,34 @@ export default function ScoringScreen({ event, saveEvent, library }) {
   // Resolved against the round's handicap lock, so the strokes shown on the tee
   // are the strokes the scats and low net will actually be settled on.
   const groupPlayers = playersAtRound(event, activeRound,
-    (groups[activeGroup] || []).map((id) => players.find((p) => p.id === id)).filter(Boolean));
+    (groups[activeGroup] || groups[0] || []).map((id) => players.find((p) => p.id === id)).filter(Boolean));
+  const groupIds = groupPlayers.map((p) => p.id);
+
+  // Open on the first hole this group hasn't finished, not hole 1.
+  useEffect(() => {
+    setActiveHole(firstOpenHole(groupIds, (rounds[activeRound] || {}).scores || {}));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeRound, activeGroup, groups.length]);
+
+  // ── Moving on ─────────────────────────────────────────────────────────────
+  // On course, finishing a hole moves to the next one after a moment. Another
+  // tap on that hole restarts the wait (bogey, then double), clearing a score
+  // cancels it, and fixing a finished hole later never jumps away from you.
+  function cancelAdvance() {
+    if (advance.current.timer) clearTimeout(advance.current.timer);
+    advance.current = { timer: null, hole: null };
+  }
+  useEffect(() => cancelAdvance, []);
+  useEffect(() => {
+    if (advancedFrom == null) return;
+    const id = setTimeout(() => setAdvancedFrom(null), 6000);
+    return () => clearTimeout(id);
+  }, [advancedFrom]);
+  function goHole(h) {
+    cancelAdvance();
+    setAdvancedFrom(null);
+    setActiveHole(Math.max(0, Math.min(17, h)));
+  }
   const hcpLock = lockStatus(event, activeRound);
 
   async function setScore(pid, holeIdx, val) {
@@ -239,8 +283,26 @@ export default function ScoringScreen({ event, saveEvent, library }) {
     }, library, activeRound);
     saveEvent(updated, true);
 
+    if (onCourse) {
+      const after = { ...scores, [pid]: playerScores };
+      const waiting = advance.current.timer != null && advance.current.hole === holeIdx;
+      const action = autoAdvanceAction(groupIds, scores, after, holeIdx, waiting);
+      if (action === "cancel") cancelAdvance();
+      if (action === "schedule" && holeIdx === activeHole) {
+        cancelAdvance();
+        advance.current = {
+          hole: holeIdx,
+          timer: setTimeout(() => {
+            advance.current = { timer: null, hole: null };
+            setActiveHole(holeIdx + 1);
+            setAdvancedFrom(holeIdx);
+          }, 1500),
+        };
+      }
+    }
+
     try {
-      await savePlayerScore(activeRound, pid, playerScores, round.courseId || activeRound, freeze);
+      await pendingWrites.track(savePlayerScore(activeRound, pid, playerScores, round.courseId || activeRound, freeze), "score");
     } catch (e) {
       console.warn("Score save queued offline:", e.message);
     }
@@ -320,7 +382,7 @@ export default function ScoringScreen({ event, saveEvent, library }) {
       rounds: { ...rounds, [activeRound]: { ...round, courseId: cId } },
     }, true);
     try {
-      await saveRoundCourse(activeRound, cId);
+      await pendingWrites.track(saveRoundCourse(activeRound, cId), "change");
     } catch (e) {
       console.warn("Course save queued offline:", e.message);
     }
@@ -368,7 +430,7 @@ export default function ScoringScreen({ event, saveEvent, library }) {
         return (
           <button
             key={h}
-            onClick={() => setActiveHole(h)}
+            onClick={() => goHole(h)}
             style={{
               flex: 1, padding: "7px 2px", borderRadius: "7px",
               fontFamily: FB, fontSize: "13px", fontWeight: isActive ? 700 : 500,
@@ -390,10 +452,27 @@ export default function ScoringScreen({ event, saveEvent, library }) {
 
   return (
     <div style={{ maxWidth: "900px", margin: "0 auto", padding: "22px 14px", paddingBottom: "90px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
+      {/* On course, everything chosen once a morning — round, group, the hole
+          grid, the lock — folds into one line, so the four players are on
+          screen as soon as you look at the phone. */}
+      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: onCourse ? "10px" : "4px" }}>
+        {onCourse ? (
+          <button onClick={() => setShowSetup((v) => !v)} aria-expanded={showSetup}
+            style={{
+              display: "flex", alignItems: "center", gap: "6px", minWidth: 0,
+              padding: "8px 12px", borderRadius: "999px", border: "1px solid #c8d0c8", background: CARD,
+              fontFamily: FB, fontSize: "14px", fontWeight: 700, color: CREAM, cursor: "pointer", touchAction: "manipulation",
+            }}>
+            <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              R{activeRound} · {groups.length > 1 ? `Group ${(groups[activeGroup] ? activeGroup : 0) + 1}` : "Everyone"} · {holesDone(groupIds, scores)}/18
+            </span>
+            <span aria-hidden style={{ color: M, fontSize: "11px" }}>{showSetup ? "▲" : "▼"}</span>
+          </button>
+        ) : (
         <div style={{ fontFamily: FD, fontSize: "28px", fontWeight: 600, color: CREAM }}>
           Scoring
         </div>
+        )}
         <button onClick={toggleOnCourse}
           style={{
             marginLeft: "auto", padding: "6px 12px", borderRadius: "999px", cursor: "pointer",
@@ -407,15 +486,17 @@ export default function ScoringScreen({ event, saveEvent, library }) {
       </div>
 
       {/* Round tabs */}
+      {(!onCourse || showSetup) && (
       <div className="round-tabs">
         {roundIds(event).map((r) => (
           <button key={r}
-            onClick={() => { setActiveRound(r); setActiveHole(0); }}
+            onClick={() => setActiveRound(r)}
             className={`round-tab${activeRound === r ? " active" : ""}`}>
             Round {r}
           </button>
         ))}
       </div>
+      )}
 
       {/* Course selector */}
       {!round.courseId && (
@@ -433,6 +514,7 @@ export default function ScoringScreen({ event, saveEvent, library }) {
 
       {course ? (
         <>
+          {(!onCourse || showSetup) && (<>
           {/* Course info */}
           <div style={{ fontSize: "12px", color: M, marginBottom: "12px" }}>
             {course.name} · Par {totalPar(course)} · Slope {course.slope} · Rating {course.rating}
@@ -491,7 +573,7 @@ export default function ScoringScreen({ event, saveEvent, library }) {
             <div style={{ display: "flex", gap: "6px", marginBottom: "14px" }}>
               {groups.map((g, gi) => (
                 <button key={gi}
-                  onClick={() => { setActiveGroup(gi); setActiveHole(0); }}
+                  onClick={() => setActiveGroup(gi)}
                   className={`round-tab${activeGroup === gi ? " active" : ""}`}>
                   Group {gi + 1}
                 </button>
@@ -513,6 +595,30 @@ export default function ScoringScreen({ event, saveEvent, library }) {
               Hole {activeHole + 1} &nbsp;·&nbsp; Par {par} &nbsp;·&nbsp; SI {si}
             </div>
           </div>
+          </>)}
+
+          {/* On course: the hole you're on, big, with a step either side. */}
+          {onCourse && (
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
+              <button onClick={() => goHole(activeHole - 1)} disabled={activeHole === 0} aria-label="Previous hole"
+                style={{ ...holeStep, opacity: activeHole === 0 ? 0.35 : 1 }}>‹</button>
+              <div style={{ flex: 1, textAlign: "center" }}>
+                <div style={{ fontSize: "30px", fontWeight: 800, color: CREAM, lineHeight: 1.05, fontVariantNumeric: "tabular-nums" }}>Hole {activeHole + 1}</div>
+                <div style={{ fontSize: "15px", color: M, fontWeight: 600, marginTop: "2px" }}>Par {par} · SI {si}</div>
+              </div>
+              <button onClick={() => goHole(activeHole + 1)} disabled={activeHole === 17} aria-label="Next hole"
+                style={{ ...holeStep, opacity: activeHole === 17 ? 0.35 : 1 }}>›</button>
+            </div>
+          )}
+          {onCourse && advancedFrom != null && (
+            <div role="status" style={{ fontSize: "13px", color: M, textAlign: "center", marginBottom: "10px" }}>
+              Hole {advancedFrom + 1} done.{" "}
+              <button onClick={() => goHole(advancedFrom)}
+                style={{ border: "none", background: "transparent", padding: 0, color: G, fontFamily: FB, fontSize: "13px", fontWeight: 700, textDecoration: "underline", cursor: "pointer" }}>
+                Back to hole {advancedFrom + 1}
+              </button>
+            </div>
+          )}
 
           {/* CTP card — only on configured par-3 CTP holes */}
           {isCTPHole && (
@@ -635,7 +741,7 @@ export default function ScoringScreen({ event, saveEvent, library }) {
               <div style={{ background: CARD, border: `1px solid ${tone}55`, borderRadius: "12px", padding: "12px 14px", marginBottom: "12px" }}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: "8px", flexWrap: "wrap" }}>
                   <span style={{ fontSize: "11px", letterSpacing: ".08em", textTransform: "uppercase", color: M, fontWeight: 600 }}>
-                    Hole {hs.hole} · Par {hs.par} · SI {hs.si}
+                    This hole
                   </span>
                   <span style={{ marginLeft: "auto", fontSize: "15px", fontWeight: 700, color: tone }}>{headline}</span>
                 </div>
@@ -683,10 +789,10 @@ export default function ScoringScreen({ event, saveEvent, library }) {
                     padding: "6px 8px 6px 11px", marginBottom: "7px",
                   }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: "15px", fontWeight: 700, color: CREAM, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <div style={{ fontSize: "17px", fontWeight: 700, color: CREAM, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                         {p.name}
                       </div>
-                      <div style={{ fontSize: "10.5px", color: strokes > 0 ? G : M, marginTop: "1px", fontWeight: strokes > 0 ? 700 : 400 }}>
+                      <div style={{ fontSize: "12.5px", color: strokes > 0 ? G : M, marginTop: "1px", fontWeight: strokes > 0 ? 700 : 500 }}>
                         {strokes > 0 ? `${"•".repeat(strokes)} ${strokes} stroke${strokes > 1 ? "s" : ""} here` : `plays off ${chcp} · no shot`}
                       </div>
                     </div>
@@ -694,44 +800,61 @@ export default function ScoringScreen({ event, saveEvent, library }) {
                     <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
                       <button onClick={() => stepScore(p.id, activeHole, -1)}
                         style={{
-                          width: "40px", height: "46px", borderRadius: "9px 0 0 9px",
+                          width: "44px", height: "52px", borderRadius: "9px 0 0 9px",
                           border: "1px solid #c8d0c8", borderRight: "none", background: "rgba(26,61,36,0.06)",
                           color: CREAM, fontSize: "21px", cursor: "pointer", touchAction: "manipulation",
                         }}>−</button>
                       <div onClick={() => !gross && setScore(p.id, activeHole, par)}
                         style={{
-                          width: "50px", height: "46px",
+                          width: "54px", height: "52px",
                           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
                           border: gross ? "1px solid #c8d0c8" : `2px dashed ${G}88`,
                           background: gross ? "rgba(26,61,36,0.06)" : `${G}15`,
                           cursor: gross ? "default" : "pointer", touchAction: "manipulation",
                         }}>
-                        <span style={{ fontSize: gross ? "20px" : "11px", fontWeight: 700, lineHeight: 1, color: gross ? CREAM : G }}>
+                        <span style={{ fontSize: gross ? "22px" : "13px", fontWeight: 800, lineHeight: 1, color: gross ? CREAM : G }}>
                           {gross || "PAR"}
                         </span>
-                        <span style={{ fontSize: "9px", lineHeight: 1, marginTop: "2px", color: gross ? M : G }}>
+                        <span style={{ fontSize: "10.5px", lineHeight: 1, marginTop: "3px", color: gross ? M : G, fontWeight: 600 }}>
                           {gross ? scoreName(gross, par) : `tap = ${par}`}
                         </span>
                       </div>
                       <button onClick={() => stepScore(p.id, activeHole, +1)}
                         style={{
-                          width: "40px", height: "46px", borderRadius: "0 9px 9px 0",
+                          width: "44px", height: "52px", borderRadius: "0 9px 9px 0",
                           border: "1px solid #c8d0c8", borderLeft: "none", background: "rgba(26,61,36,0.06)",
                           color: CREAM, fontSize: "21px", cursor: "pointer", touchAction: "manipulation",
                         }}>+</button>
                     </div>
 
                     <div style={{ width: "36px", textAlign: "right", flexShrink: 0 }}>
-                      <div style={{ fontSize: "19px", fontWeight: 800, lineHeight: 1, color: gross ? netColor : M }}>
+                      <div style={{ fontSize: "21px", fontWeight: 800, lineHeight: 1, color: gross ? netColor : M }}>
                         {gross ? net : "–"}
                       </div>
-                      <div style={{ fontSize: "9px", color: M, marginTop: "2px" }}>net</div>
+                      <div style={{ fontSize: "10.5px", color: M, marginTop: "3px", fontWeight: 600 }}>net</div>
                     </div>
                   </div>
                 );
               })}
             </div>
           )}
+
+          {/* Next hole, where the thumb already is. Filled once everyone's in. */}
+          {onCourse && (() => {
+            const done = holeComplete(groupIds, scores, activeHole);
+            const last = activeHole >= 17;
+            return (
+              <button onClick={() => goHole(activeHole + 1)} disabled={last}
+                style={{
+                  width: "100%", height: "54px", borderRadius: "12px", marginBottom: "16px",
+                  border: done && !last ? "none" : "1px solid #c8d0c8",
+                  background: done && !last ? G : "#fff", color: done && !last ? "#fff" : last ? M : CREAM,
+                  fontFamily: FB, fontSize: "17px", fontWeight: 700, cursor: last ? "default" : "pointer", touchAction: "manipulation",
+                }}>
+                {last ? (holesDone(groupIds, scores) === 18 ? "Round complete" : "Last hole") : `Next: hole ${activeHole + 2} →`}
+              </button>
+            );
+          })()}
 
           {/* Player stepper cards — the roomier clubhouse layout */}
           {!onCourse && (

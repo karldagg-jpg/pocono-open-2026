@@ -17,6 +17,8 @@ import LiveScreen from "./components/LiveScreen";
 import CasualScreen from "./components/CasualScreen";
 import { cloneWeekend, blankRounds } from "./lib/newWeekend";
 import NewWeekendScreen from "./components/NewWeekendScreen";
+import SyncMarker from "./components/SyncMarker";
+import { pendingWrites } from "./lib/pendingWrites";
 
 const TABS = [
   { id: "live",        label: "Live" },
@@ -138,7 +140,7 @@ export default function App() {
     setSaving(true);
     const firestoreData = (patch && typeof patch === "object") ? patch : updated;
     try {
-      await updateDoc(weekendDoc(), firestoreData);
+      await pendingWrites.track(updateDoc(weekendDoc(), firestoreData), "change");
       setLastSynced(new Date());
     } catch (e) {
       if (e.code === "not-found") {
@@ -244,6 +246,7 @@ export default function App() {
               )}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <SyncMarker />
               {saving && <span style={{ fontSize: "11px", color: M }}>saving...</span>}
               {lastSynced && !saving && (
                 <span className="synced">synced {syncAgo()}</span>
