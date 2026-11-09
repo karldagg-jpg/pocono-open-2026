@@ -80,6 +80,9 @@ export function cloneWeekend(source, {
     rounds,
     pairings: {},
     games: keepGames ? resetGames(src.games, ids) : {},
+    // Cards are signed before the money settles. New weekends only — a
+    // weekend already played is never held up by a rule it didn't have.
+    requireSignOff: true,
     weekendBuyIn: src.weekendBuyIn ?? 100,
   };
 }

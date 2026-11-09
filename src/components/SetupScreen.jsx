@@ -5,6 +5,7 @@ import { resetEvent } from "../firebase/client";
 import { weekendReadiness, MISSING, WARN } from "../lib/weekendSetup";
 import { fmtIndex } from "../lib/format";
 import { coursesFor } from "../lib/courses";
+import { normalizeHandle } from "../lib/venmo";
 
 export default function SetupScreen({ event, saveEvent, setAdminPin, authed, library = {} }) {
   // The field used to be capped at twelve, which made a sixteen-player
@@ -17,6 +18,12 @@ export default function SetupScreen({ event, saveEvent, setAdminPin, authed, lib
   const [editId, setEditId] = useState(null);
   const [editName, setEditName] = useState("");
   const [editHcp, setEditHcp] = useState("");
+  // Venmo usernames are checked as they're typed — a wrong one sends money to
+  // the wrong person, so it's worth a second look before it's saved.
+  const [venmo, setVenmo] = useState("");
+  const [editVenmo, setEditVenmo] = useState("");
+  const venmoCheck = normalizeHandle(venmo);
+  const editVenmoCheck = normalizeHandle(editVenmo);
   const [pinDraft, setPinDraft] = useState("");
   const [seedLoading, setSeedLoading] = useState(false);
   const [clearLoading, setClearLoading] = useState(false);
@@ -49,12 +56,14 @@ export default function SetupScreen({ event, saveEvent, setAdminPin, authed, lib
   }
 
   function addPlayer() {
-    if (!name.trim() || hcpIndex === "") return;
+    if (!name.trim() || hcpIndex === "" || venmoCheck.error) return;
     const newPlayer = { id: Date.now(), name: name.trim(), hcpIndex: parseFloat(hcpIndex) };
+    if (venmoCheck.handle) newPlayer.venmo = venmoCheck.handle;
     const newPlayers = [...players, newPlayer];
     saveEvent({ ...event, players: newPlayers }, { players: newPlayers });
     setName("");
     setHcpIndex("");
+    setVenmo("");
   }
 
   function removePlayer(id) {
@@ -65,13 +74,18 @@ export default function SetupScreen({ event, saveEvent, setAdminPin, authed, lib
   function startEdit(p) {
     setEditId(p.id);
     setEditName(p.name);
-    setEditHcp(String(p.hcpIndex));
+    setEditHcp(p.hcpIndex == null ? "" : String(p.hcpIndex));
+    setEditVenmo(p.venmo || "");
   }
 
   function saveEdit() {
-    const newPlayers = players.map((p) =>
-      p.id === editId ? { ...p, name: editName.trim(), hcpIndex: parseFloat(editHcp) } : p
-    );
+    if (editVenmoCheck.error) return;
+    const newPlayers = players.map((p) => {
+      if (p.id !== editId) return p;
+      const { venmo: _old, ...rest } = p;
+      const next = { ...rest, name: editName.trim(), hcpIndex: editHcp === "" ? null : parseFloat(editHcp) };
+      return editVenmoCheck.handle ? { ...next, venmo: editVenmoCheck.handle } : next;
+    });
     saveEvent({ ...event, players: newPlayers }, { players: newPlayers });
     setEditId(null);
   }
@@ -145,7 +159,18 @@ export default function SetupScreen({ event, saveEvent, setAdminPin, authed, lib
               style={{ ...inputStyle, width: "100px", flexShrink: 0 }}
             />
           </div>
-          <button onClick={addPlayer} style={btnStyle}>
+          <input
+            value={venmo}
+            onChange={(e) => setVenmo(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addPlayer()}
+            placeholder="Venmo username (optional)"
+            aria-label="Venmo username"
+            aria-invalid={!!venmoCheck.error || undefined}
+            autoCapitalize="none" autoCorrect="off" spellCheck={false}
+            style={{ ...inputStyle, marginBottom: venmoCheck.error ? "4px" : "8px", borderColor: venmoCheck.error ? R : undefined }}
+          />
+          {venmoCheck.error && <div style={{ fontSize: "12px", color: R, marginBottom: "8px" }}>{venmoCheck.error}</div>}
+          <button onClick={addPlayer} style={btnStyle} disabled={!!venmoCheck.error}>
             + Add
           </button>
         </div>
@@ -156,11 +181,20 @@ export default function SetupScreen({ event, saveEvent, setAdminPin, authed, lib
         {players.map((p, i) => (
           <div key={p.id} style={{ background: CARD, border: `1px solid ${GOLD}22`, borderRadius: "10px", padding: "10px 14px" }}>
             {editId === p.id ? (
-              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                <input value={editName} onChange={(e) => setEditName(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
-                <input value={editHcp} onChange={(e) => setEditHcp(e.target.value)} type="number" step="0.1" style={{ ...inputStyle, width: "80px" }} />
-                <button onClick={saveEdit} style={{ ...btnStyle, padding: "6px 12px" }}>Save</button>
-                <button onClick={() => setEditId(null)} style={{ ...ghostBtn, padding: "6px 12px" }}>Cancel</button>
+              <div style={{ display: "grid", gap: "8px" }}>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <input value={editName} onChange={(e) => setEditName(e.target.value)} aria-label="Name" style={{ ...inputStyle, flex: 1 }} />
+                  <input value={editHcp} onChange={(e) => setEditHcp(e.target.value)} type="number" step="0.1" aria-label="Handicap index" placeholder="Index" style={{ ...inputStyle, width: "88px", flexShrink: 0 }} />
+                </div>
+                <input value={editVenmo} onChange={(e) => setEditVenmo(e.target.value)} placeholder="Venmo username (optional)"
+                  aria-label="Venmo username" aria-invalid={!!editVenmoCheck.error || undefined}
+                  autoCapitalize="none" autoCorrect="off" spellCheck={false}
+                  style={{ ...inputStyle, borderColor: editVenmoCheck.error ? R : undefined }} />
+                {editVenmoCheck.error && <div style={{ fontSize: "12px", color: R }}>{editVenmoCheck.error}</div>}
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button onClick={saveEdit} disabled={!!editVenmoCheck.error} style={{ ...btnStyle, padding: "8px 14px" }}>Save</button>
+                  <button onClick={() => setEditId(null)} style={{ ...ghostBtn, padding: "8px 14px" }}>Cancel</button>
+                </div>
               </div>
             ) : (
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -169,6 +203,7 @@ export default function SetupScreen({ event, saveEvent, setAdminPin, authed, lib
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: "14px", color: CREAM, fontWeight: 500 }}>{p.name}</div>
+                  <div style={{ fontSize: "12px", color: M, marginTop: "1px" }}>{p.venmo ? `Venmo @${p.venmo}` : "No Venmo yet"}</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div style={{ fontSize: "16px", fontWeight: 700, color: GOLD }}>{fmtIndex(p.hcpIndex)}</div>
@@ -184,7 +219,7 @@ export default function SetupScreen({ event, saveEvent, setAdminPin, authed, lib
 
       {players.length === 0 && (
         <div style={{ textAlign: "center", color: M, fontSize: "14px", padding: "40px 0" }}>
-          No players yet. Add up to 12 above.
+          No players yet — add the first one above.
         </div>
       )}
 

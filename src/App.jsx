@@ -343,7 +343,7 @@ export default function App() {
           {screen === "scatts"      && <ScattsScreen      event={event} library={library} />}
           {screen === "live"        && <LiveScreen        event={event} library={library} weekendLabel={(weekendIndex[weekendId] || {}).label} />}
           {screen === "leaderboard" && <LeaderboardScreen event={event} library={library} />}
-          {screen === "winnings"    && <WinningsScreen    event={event} library={library} archived={curArchived} />}
+          {screen === "winnings"    && <WinningsScreen    event={event} library={library} archived={curArchived} saveEvent={saveEvent} weekendLabel={(weekendIndex[weekendId] || {}).label} />}
           {screen === "games"       && <GamesScreen       event={event} saveEvent={saveEvent} library={library} />}
           {screen === "replay"      && <ReplayScreen      event={event} library={library} />}
           {screen === "thursday"    && <ThursdayScreen    event={event} saveEvent={saveEvent} />}

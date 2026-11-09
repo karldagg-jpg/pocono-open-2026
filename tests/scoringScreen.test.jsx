@@ -59,3 +59,16 @@ describe("Scoring in the clubhouse", () => {
     expect(t).not.toMatch(/Next: hole/);
   });
 });
+
+import { roundGroups } from "../src/lib/signOff.js";
+import { groupList } from "../src/lib/pairings.js";
+
+describe("players the pairings left out", () => {
+  it("get a group button of their own, so their cards can be entered", () => {
+    store["pocono:onCourse"] = "0";
+    const paired = groupList(archive.event.pairings, 1).filter((g) => g.length).length;
+    const all = roundGroups(archive.event, 1).length;
+    expect(all).toBe(paired + 1);
+    expect(render()).toMatch(new RegExp(`Group ${all}`));
+  });
+});

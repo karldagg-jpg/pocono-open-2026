@@ -11,6 +11,7 @@ import { coursesFor, freezeFields, withFrozenCourse } from "../lib/courses";
 import { pendingWrites } from "../lib/pendingWrites";
 import { firstOpenHole, autoAdvanceAction, holeComplete, holesDone } from "../lib/scoringFlow";
 import { applyFields, ctpResultFields, ctpClearFields } from "../lib/fieldPatch";
+import { signOffStatus, groupKey, signFields, unsignFields, roundGroups } from "../lib/signOff";
 
 const LOST_BALL_SECS = 180;
 
@@ -229,7 +230,9 @@ export default function ScoringScreen({ event, saveEvent, library }) {
   const hasGroups = Object.keys(groupsObj).length > 0;
   // However many groups the round actually has — reading 0,1,2 by hand silently
   // dropped the fourth group once the field grew past twelve.
-  const groups = hasGroups ? groupList(pairings, activeRound) : [players.map((p) => p.id)];
+  // Same groups the card sign-off uses — including anyone the pairings left
+  // out, who used to have no group button and so couldn't be scored here.
+  const groups = roundGroups(event, activeRound);
   // Resolved against the round's handicap lock, so the strokes shown on the tee
   // are the strokes the scats and low net will actually be settled on.
   const groupPlayers = playersAtRound(event, activeRound,
@@ -836,6 +839,20 @@ export default function ScoringScreen({ event, saveEvent, library }) {
             );
           })()}
 
+          {/* Signing the card, once the group's card is complete. */}
+          {event.requireSignOff && (() => {
+            const st = signOffStatus(event, activeRound).find((g) => g.key === groupKey(groupIds));
+            if (!st || !st.complete) return null;
+            return (
+              <SignCard status={st} players={groupPlayers}
+                onSign={(byId) => { const f = signFields(event, activeRound, groupIds, byId); saveEvent(applyFields(event, f), f); }}
+                onUnsign={() => {
+                  if (!window.confirm("Take back the signature on this card?")) return;
+                  const f = unsignFields(activeRound, groupIds); saveEvent(applyFields(event, f), f);
+                }} />
+            );
+          })()}
+
           {/* Player stepper cards — the roomier clubhouse layout */}
           {!onCourse && (
           <div style={{
@@ -1116,6 +1133,50 @@ export default function ScoringScreen({ event, saveEvent, library }) {
       )}
 
       <LostBallTimer />
+    </div>
+  );
+}
+
+// ── Sign the card ────────────────────────────────────────────────────────────
+// Check the scores with the group, then one of you signs. Changing a score
+// afterwards drops the signature, and the money waits until it's signed again.
+function SignCard({ status, players, onSign, onUnsign }) {
+  const me = (() => { try { return localStorage.getItem("pocono:meId"); } catch { return null; } })();
+  const inGroup = players.some((p) => String(p.id) === String(me));
+  const [by, setBy] = useState(inGroup ? String(me) : String(players[0]?.id ?? ""));
+  const when = (t) => new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+  if (status.signed) {
+    return (
+      <div role="status" style={{ display: "flex", alignItems: "center", gap: "10px", background: "#e8f4ed", border: `1px solid ${G}55`, borderRadius: "12px", padding: "12px 14px", marginBottom: "16px" }}>
+        <span aria-hidden style={{ fontSize: "20px", color: G }}>✓</span>
+        <div style={{ flex: 1, fontSize: "14px", color: CREAM }}>
+          Card signed by <strong>{status.signed.byName}</strong>
+          <span style={{ color: M }}> · {when(status.signed.at)}</span>
+        </div>
+        <button onClick={onUnsign} style={{ border: "none", background: "transparent", color: M, fontFamily: FB, fontSize: "13px", textDecoration: "underline", cursor: "pointer" }}>Take back</button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ background: CARD, border: `2px solid ${GO}`, borderRadius: "12px", padding: "14px", marginBottom: "16px" }}>
+      <div style={{ fontSize: "16px", fontWeight: 700, color: CREAM }}>
+        {status.stale ? "The card changed after it was signed" : "Card complete — sign it"}
+      </div>
+      <div style={{ fontSize: "13px", color: M, margin: "4px 0 12px", lineHeight: 1.45 }}>
+        Check every score with your group. The money for this round waits until the card is signed.
+      </div>
+      <div style={{ display: "flex", gap: "8px" }}>
+        <select value={by} onChange={(e) => setBy(e.target.value)} aria-label="Signed by"
+          style={{ flex: 1, minWidth: 0, padding: "11px 10px", borderRadius: "9px", border: "1px solid #c8d0c8", background: "#fff", fontFamily: FB, fontSize: "15px", color: CREAM }}>
+          {players.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+        <button onClick={() => onSign(by)} disabled={!by}
+          style={{ padding: "11px 16px", borderRadius: "9px", border: "none", background: G, color: "#fff", fontFamily: FB, fontSize: "15px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+          Sign the card
+        </button>
+      </div>
     </div>
   );
 }

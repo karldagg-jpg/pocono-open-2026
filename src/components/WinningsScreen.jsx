@@ -2,19 +2,28 @@ import { CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
 import { calcWinnings, calcLeaderboard, calcScatts, calcLowNet, calcCTP, calcBirdiePool, calcHIOBonus, gamblingPlayers, birdiePoolPlayers } from "../lib/golfLogic";
 import { settleWeekend, settlementTransfers } from "../lib/settlement";
 import { roundIds, roundCount } from "../lib/rounds";
-import { useState } from "react";
 import { coursesFor } from "../lib/courses";
+import SettleUp from "./SettleUp";
+import { paymentPlan } from "../lib/venmo";
+import { weekendSignOff } from "../lib/signOff";
+import { applyFields } from "../lib/fieldPatch";
 
 const money = (n) => `${n < 0 ? "−" : "+"}$${Math.abs(n).toLocaleString()}`;
 
-export default function WinningsScreen({ event, library, archived = false }) {
-  const [showTransfers, setShowTransfers] = useState(false);
+export default function WinningsScreen({ event, library, archived = false, saveEvent = null, weekendLabel = "" }) {
   const { players = [], rounds = {}, buyIn = 100, weekendBuyIn, games = {} } = event;
   const courses = coursesFor(event, library);
   const eventForCalc = { ...event, courses };
   const winnings = calcWinnings(eventForCalc);
   const settlement = settleWeekend(eventForCalc);
   const transfers = settlementTransfers(settlement.rows);
+  const signOff = weekendSignOff(event);
+  const plan = paymentPlan(transfers, players, { note: weekendLabel || event.name || "Golf weekend", paid: event.paid || {} });
+  // One field per payment, so two people ticking at once don't undo each other.
+  function togglePaid(p, on) {
+    const f = { [`paid.${p.key}`]: on ? { at: Date.now() } : null };
+    saveEvent(applyFields(event, f), f);
+  }
 
   const potByRound = games.scatts?.potByRound;
   const ids = roundIds(event);
@@ -168,26 +177,8 @@ export default function WinningsScreen({ event, library, archived = false }) {
           </div>
         )}
 
-        {transfers.length > 0 && (
-          <div style={{ padding: "10px 14px" }}>
-            <button onClick={() => setShowTransfers(!showTransfers)}
-              style={{ border: "none", background: "transparent", color: GOLD, fontFamily: FB, fontSize: "13px", fontWeight: 600, cursor: "pointer", padding: 0 }}>
-              {showTransfers ? "Hide" : "Show"} who pays whom ({transfers.length} payment{transfers.length === 1 ? "" : "s"})
-            </button>
-            {showTransfers && (
-              <div style={{ marginTop: "9px" }}>
-                {transfers.map((t, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "5px 0", fontSize: "13px", color: CREAM }}>
-                    <span style={{ minWidth: "72px" }}>{t.from}</span>
-                    <span style={{ color: M }}>→</span>
-                    <span style={{ flex: 1 }}>{t.to}</span>
-                    <span style={{ fontFamily: FB, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: GO }}>${t.amount}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        <SettleUp plan={plan} signOff={signOff} archived={archived}
+          onTogglePaid={saveEvent ? togglePaid : null} />
       </Section>
 
       {/* ── Scatts ── */}
