@@ -5,7 +5,7 @@ import { useState } from "react";
 
 const money = (n) => `${n < 0 ? "−" : "+"}$${Math.abs(n).toLocaleString()}`;
 
-export default function WinningsScreen({ event, library }) {
+export default function WinningsScreen({ event, library, archived = false }) {
   const [showTransfers, setShowTransfers] = useState(false);
   const { players = [], rounds = {}, buyIn = 100, weekendBuyIn, games = {} } = event;
   const courses = { ...(event.courses || {}), ...library };
@@ -136,21 +136,25 @@ export default function WinningsScreen({ event, library }) {
         {/* Being on the roster and being in the game are different things, and
             only one of them costs money. Russ sat in the 2026 books down $128
             for a weekend he has no card in — worth asking about before anyone
-            settles up. */}
+            settles up. On an archived weekend the money has long since changed
+            hands, so it reads as a note on the record rather than a job to do. */}
         {settlement.stakedWithoutCard.length > 0 && (() => {
           const ghosts = settlement.stakedWithoutCard
             .map((p) => settlement.rows.find((r) => r.player.id === p.id))
             .filter(Boolean);
           const cost = ghosts.reduce((t, r) => t - r.net, 0);
           return (
-            <div style={{ padding: "11px 14px", background: "rgba(176,58,46,0.06)", fontSize: "12px", color: M, lineHeight: 1.5 }}>
-              <div style={{ color: R, fontWeight: 600, marginBottom: "3px" }}>
+            <div style={{ padding: "11px 14px", background: archived ? "rgba(201,168,76,0.05)" : "rgba(176,58,46,0.06)", fontSize: "12px", color: M, lineHeight: 1.5 }}>
+              <div style={{ color: archived ? GOLD : R, fontWeight: 600, marginBottom: "3px" }}>
                 {ghosts.length === 1 ? "A player with no card" : `${ghosts.length} players with no card`}
               </div>
               <strong style={{ color: CREAM }}>{ghosts.map((r) => r.player.name).join(", ")}</strong>
               {ghosts.length === 1 ? " is" : " are"} in the money games but turned in no scorecard in any
-              round, and down <strong style={{ color: CREAM }}>${cost}</strong> as a result. If they weren't
-              in, remove them on Players; if they were, opt them out so no buy-in is charged.
+              round, and {ghosts.length === 1 ? "carries" : "carry"} <strong style={{ color: CREAM }}>${cost}</strong> of
+              the settlement.
+              {archived
+                ? " Left as it was played."
+                : " If they weren't in, remove them on Players; if they were, opt them out so no buy-in is charged."}
             </div>
           );
         })()}
