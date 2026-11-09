@@ -1,27 +1,33 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { onSnapshot, setDoc, updateDoc } from "firebase/firestore";
 import { weekendDoc, setActiveWeekendId, getActiveWeekendId, subscribeIndex, saveIndex, createWeekend, subscribeLibrary } from "./firebase/client";
 import { BG, CREAM, G, GO, GOLD, M, R, FB, FD } from "./constants/theme";
-import SetupScreen from "./components/SetupScreen";
-import CourseScreen from "./components/CourseScreen";
-import PairingsScreen from "./components/PairingsScreen";
 import ScoringScreen from "./components/ScoringScreen";
 import ScattsScreen from "./components/ScattsScreen";
 import LeaderboardScreen from "./components/LeaderboardScreen";
 import WinningsScreen from "./components/WinningsScreen";
-import RecordScreen from "./components/RecordScreen";
-import GamesScreen from "./components/GamesScreen";
-import ReplayScreen from "./components/ReplayScreen";
 import ThursdayScreen from "./components/ThursdayScreen";
-import SixiesScreen from "./components/SixiesScreen";
 import LiveScreen from "./components/LiveScreen";
-import CasualScreen from "./components/CasualScreen";
 import { cloneWeekend, blankRounds } from "./lib/newWeekend";
-import NewWeekendScreen from "./components/NewWeekendScreen";
 import SyncMarker from "./components/SyncMarker";
+import UpdateBanner from "./components/UpdateBanner";
 import { pendingWrites } from "./lib/pendingWrites";
 import { coursesFor } from "./lib/courses";
 import { roundsWithoutCourse } from "./lib/weekendSetup";
+import { lazyScreen } from "./lib/lazyScreen";
+
+// Screens nobody opens on the course load the first time they're opened,
+// which keeps the app itself small for the first tee.
+const SetupScreen = lazyScreen(() => import("./components/SetupScreen"));
+const CourseScreen = lazyScreen(() => import("./components/CourseScreen"));
+const PairingsScreen = lazyScreen(() => import("./components/PairingsScreen"));
+const RecordScreen = lazyScreen(() => import("./components/RecordScreen"));
+const GamesScreen = lazyScreen(() => import("./components/GamesScreen"));
+const ReplayScreen = lazyScreen(() => import("./components/ReplayScreen"));
+const SixiesScreen = lazyScreen(() => import("./components/SixiesScreen"));
+const CasualScreen = lazyScreen(() => import("./components/CasualScreen"));
+const NewWeekendScreen = lazyScreen(() => import("./components/NewWeekendScreen"));
+
 
 const TABS = [
   { id: "live",        label: "Live" },
@@ -79,6 +85,7 @@ export default function App() {
   const [weekendId, setWeekendId] = useState(() => getActiveWeekendId());
   const [weekendIndex, setWeekendIndex] = useState({});
   const [library, setLibrary] = useState({});
+  const [loaded, setLoaded] = useState(false);   // the weekend's data has arrived
 
   useEffect(() => {
     const on = () => setOnline(true);
@@ -98,8 +105,10 @@ export default function App() {
   useEffect(() => {
     setActiveWeekendId(weekendId);
     setEvent(DEFAULT_EVENT);
+    setLoaded(false);
     const unsub = onSnapshot(weekendDoc(weekendId), (snap) => {
       setEvent(snap.exists() ? snap.data() : DEFAULT_EVENT);
+      setLoaded(true);
       setLastSynced(new Date());
     }, (err) => console.warn("Firestore:", err));
     return unsub;
@@ -196,7 +205,9 @@ export default function App() {
   const hasPlayers = (event.players || []).length > 0;
   const isSetupPhase = !hasPlayers || roundsWithoutCourse(event, coursesFor(event, library)).length > 0;
   const MORE = [...GET_READY, ...EXTRAS];
-  useEffect(() => { if (isSetupPhase) setMoreOpen(true); }, [weekendId, isSetupPhase]);
+  // Only once the weekend has loaded — before that every weekend looks empty,
+  // and the menu used to pop open on every launch.
+  useEffect(() => { if (loaded && isSetupPhase) setMoreOpen(true); }, [weekendId, loaded, isSetupPhase]);
 
   function syncAgo() {
     if (!lastSynced) return null;
@@ -290,6 +301,8 @@ export default function App() {
         </div>
       </div>
 
+      <UpdateBanner />
+
       {!online && (
         <div style={{ background: "#fff3cd", borderBottom: `1px solid #e6c84a`, padding: "7px 14px", textAlign: "center", fontSize: "12px", color: "#7a5500" }}>
           Offline — scores saved locally, will sync when signal returns
@@ -330,6 +343,7 @@ export default function App() {
         </div>
       ) : (
         <div>
+          <Suspense fallback={<div role="status" style={{ padding: "40px 16px", textAlign: "center", color: M, fontSize: "14px" }}>Loading…</div>}>
           {newWeekendOpen ? (
             <NewWeekendScreen
               source={event}
@@ -353,6 +367,7 @@ export default function App() {
           {screen === "casual"      && <CasualScreen      library={library} />}
           {screen === "record"      && <RecordScreen      event={event} library={library} weekendIndex={weekendIndex} weekendId={weekendId} />}
           </>)}
+          </Suspense>
         </div>
       )}
     </div>
