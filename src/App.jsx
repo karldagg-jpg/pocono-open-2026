@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { onSnapshot, setDoc, updateDoc } from "firebase/firestore";
-import { weekendDoc, setActiveWeekendId, getActiveWeekendId, subscribeIndex, saveIndex, createWeekend, subscribeLibrary } from "./firebase/client";
+import { onAuth, isSignInLink, completeOrganizerSignIn, signOutOrganizer, SIGNIN_EMAIL_KEY, weekendDoc, setActiveWeekendId, getActiveWeekendId, subscribeIndex, saveIndex, createWeekend, subscribeLibrary } from "./firebase/client";
 import { BG, CREAM, G, GO, GOLD, M, R, FB, FD } from "./constants/theme";
 import ScoringScreen from "./components/ScoringScreen";
 import ScattsScreen from "./components/ScattsScreen";
@@ -15,6 +15,8 @@ import { pendingWrites } from "./lib/pendingWrites";
 import { coursesFor } from "./lib/courses";
 import { roundsWithoutCourse } from "./lib/weekendSetup";
 import { lazyScreen } from "./lib/lazyScreen";
+import OrganizerSignIn from "./components/OrganizerSignIn";
+import { isOrganizer, signInRequired } from "./lib/organizers";
 
 // Screens nobody opens on the course load the first time they're opened,
 // which keeps the app itself small for the first tee.
@@ -86,6 +88,22 @@ export default function App() {
   const [weekendIndex, setWeekendIndex] = useState({});
   const [library, setLibrary] = useState({});
   const [loaded, setLoaded] = useState(false);   // the weekend's data has arrived
+  // Who's signed in: an anonymous golfer, or an organizer by email.
+  const [user, setUser] = useState(null);
+  useEffect(() => onAuth(setUser), []);
+  const organizer = isOrganizer(user);
+  const gated = signInRequired();
+  // Arriving from the emailed link: finish signing in, then tidy the address.
+  useEffect(() => {
+    const href = window.location.href;
+    if (!isSignInLink(href)) return;
+    let email = null;
+    try { email = localStorage.getItem(SIGNIN_EMAIL_KEY); } catch { /* ignore */ }
+    if (!email) return;   // opened on another device: the sign-in screen takes it from here
+    completeOrganizerSignIn(email, href)
+      .catch(() => {})
+      .finally(() => window.history.replaceState({}, document.title, window.location.pathname));
+  }, []);
 
   useEffect(() => {
     const on = () => setOnline(true);
@@ -182,7 +200,11 @@ export default function App() {
 
   // PIN logic
   const eventPin = event.adminPin;
-  const needsPin = eventPin && !authed && !READ_ONLY_SCREENS.includes(screen);
+  // Once there are organizers, setting up the weekend needs an organizer
+  // signed in — the database enforces it too. Scoring stays open to everyone.
+  const needsOrganizer = gated && !organizer && (GET_READY.includes(screen) || newWeekendOpen);
+  const needsPin = !gated && eventPin && !authed && !READ_ONLY_SCREENS.includes(screen);
+  const canManage = gated ? organizer : authed;
 
   function checkPin() {
     if (pinInput === eventPin) {
@@ -252,7 +274,7 @@ export default function App() {
                   <option key={w.id} value={w.id}>{w.label}{w.archived ? " (archived)" : ""}</option>
                 ))}
               </select>
-              {authed && (
+              {canManage && (
                 <>
                   <button onClick={() => setNewWeekendOpen(true)} title="New weekend"
                     style={{ padding: "3px 9px", borderRadius: "6px", border: `1px solid ${G}55`, background: G + "18", color: G, fontFamily: FB, fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>
@@ -267,6 +289,12 @@ export default function App() {
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <SyncMarker />
+              {gated && organizer && (
+                <button onClick={() => signOutOrganizer()} title={`Signed in as ${user?.email}`}
+                  style={{ padding: "3px 9px", borderRadius: "999px", border: `1px solid ${G}55`, background: G + "14", color: G, fontFamily: FB, fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>
+                  Organizer · Sign out
+                </button>
+              )}
               {saving && <span style={{ fontSize: "11px", color: M }}>saving...</span>}
               {lastSynced && !saving && (
                 <span className="synced">synced {syncAgo()}</span>
@@ -309,8 +337,10 @@ export default function App() {
         </div>
       )}
 
-      {/* PIN gate for edit screens */}
-      {needsPin ? (
+      {/* Setup screens: organizer sign-in once there are organizers, else the PIN */}
+      {needsOrganizer ? (
+        <OrganizerSignIn />
+      ) : needsPin ? (
         <div style={{ maxWidth: "360px", margin: "60px auto", padding: "30px 20px", textAlign: "center" }}>
           <div style={{ fontFamily: FD, fontSize: "24px", color: CREAM, marginBottom: "8px" }}>Enter PIN</div>
           <div style={{ fontSize: "13px", color: M, marginBottom: "20px" }}>
@@ -355,11 +385,11 @@ export default function App() {
           {screen === "setup"       && <SetupScreen      event={event} saveEvent={saveEvent} setAdminPin={setAdminPin} authed={authed} library={library} />}
           {screen === "courses"     && <CourseScreen      event={event} saveEvent={saveEvent} library={library} weekendIndex={weekendIndex} weekendId={weekendId} />}
           {screen === "pairings"    && <PairingsScreen    event={event} saveEvent={saveEvent} />}
-          {screen === "scoring"     && <ScoringScreen     event={event} saveEvent={saveEvent} library={library} />}
+          {screen === "scoring"     && <ScoringScreen     event={event} saveEvent={saveEvent} library={library} canLock={!gated || organizer} />}
           {screen === "scatts"      && <ScattsScreen      event={event} library={library} />}
           {screen === "live"        && <LiveScreen        event={event} library={library} weekendLabel={(weekendIndex[weekendId] || {}).label} />}
           {screen === "leaderboard" && <LeaderboardScreen event={event} library={library} />}
-          {screen === "winnings"    && <WinningsScreen    event={event} library={library} archived={curArchived} saveEvent={saveEvent} weekendLabel={(weekendIndex[weekendId] || {}).label} />}
+          {screen === "winnings"    && <WinningsScreen    event={event} library={library} archived={curArchived} saveEvent={saveEvent} weekendLabel={(weekendIndex[weekendId] || {}).label} canAct={!gated || organizer} />}
           {screen === "games"       && <GamesScreen       event={event} saveEvent={saveEvent} library={library} />}
           {screen === "replay"      && <ReplayScreen      event={event} library={library} />}
           {screen === "thursday"    && <ThursdayScreen    event={event} saveEvent={saveEvent} />}

@@ -190,7 +190,7 @@ function LostBallTimer() {
   );
 }
 
-export default function ScoringScreen({ event, saveEvent, library }) {
+export default function ScoringScreen({ event, saveEvent, library, canLock = true }) {
   const { players = [], courses: eventCourses = {}, rounds = {}, pairings = {}, games = {} } = event;
   const courses = coursesFor(event, library);
   // Which round and group this phone keeps the card for. Remembered, because
@@ -526,7 +526,7 @@ export default function ScoringScreen({ event, saveEvent, library }) {
                   : "Scores follow whatever index each player carries today. Lock it once everyone's index is right."}
               </div>
             </div>
-            <button
+            {canLock && <button
               onClick={() => {
                 if (hcpLock.locked) {
                   if (!window.confirm("Unlock? This round will go back to following today's indexes, which can change net scores and the money.")) return;
@@ -548,7 +548,7 @@ export default function ScoringScreen({ event, saveEvent, library }) {
                 fontFamily: FB, fontSize: "12px", fontWeight: 600,
               }}>
               {hcpLock.locked ? "Unlock" : "Lock round"}
-            </button>
+            </button>}
           </div>
 
           {/* Group selector */}

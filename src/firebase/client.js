@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, collection, updateDoc, setDoc, deleteDoc, deleteField, getDoc, serverTimestamp, onSnapshot } from "firebase/firestore";
-import { getAuth, signInAnonymously } from "firebase/auth";
+import { getAuth, signInAnonymously, onAuthStateChanged, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, signOut } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyA0ubEbHoYbfCSjfNxHUkt_fr_6WMb3t5Y",
@@ -18,9 +18,38 @@ const db = initializeFirestore(app, {
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
 });
 
-// Anonymous auth so Firestore security rules can require auth
+// Everyone is signed in: golfers anonymously, organizers by email. Only sign in
+// anonymously when nobody is — doing it unconditionally would sign an
+// organizer straight back out every time the app opened.
 const auth = getAuth(app);
-signInAnonymously(auth).catch(() => {});
+onAuthStateChanged(auth, (user) => {
+  if (!user) signInAnonymously(auth).catch(() => {});
+});
+
+// ── Organizer sign-in, by emailed link ───────────────────────────────────────
+// No passwords. The link opens the app and signs in; on an iPhone home-screen
+// app (which can't receive the link) it can be copied and pasted instead.
+export const SIGNIN_EMAIL_KEY = "pocono:signinEmail";
+
+export function onAuth(cb) { return onAuthStateChanged(auth, cb); }
+
+export async function sendOrganizerLink(email, url = window.location.origin + window.location.pathname) {
+  await sendSignInLinkToEmail(auth, email, { url, handleCodeInApp: true });
+  try { localStorage.setItem(SIGNIN_EMAIL_KEY, email); } catch { /* ignore */ }
+}
+
+export function isSignInLink(link) { return isSignInWithEmailLink(auth, link); }
+
+export async function completeOrganizerSignIn(email, link) {
+  const cred = await signInWithEmailLink(auth, email, link);
+  try { localStorage.removeItem(SIGNIN_EMAIL_KEY); } catch { /* ignore */ }
+  return cred.user;
+}
+
+/** Back to an anonymous golfer. */
+export async function signOutOrganizer() {
+  await signOut(auth);   // the listener above signs back in anonymously
+}
 
 // ── Active weekend ──────────────────────────────────────────────────────────
 // The app can switch between weekends; helpers below target whichever is active.

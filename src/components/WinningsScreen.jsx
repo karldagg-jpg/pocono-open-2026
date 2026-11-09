@@ -4,6 +4,8 @@ import { settleWeekend, settlementTransfers } from "../lib/settlement";
 import { roundIds, roundCount } from "../lib/rounds";
 import { coursesFor } from "../lib/courses";
 import SettleUp from "./SettleUp";
+import BankSettle from "./BankSettle";
+import { bankerPlan } from "../lib/banker";
 import ShareRecap from "./ShareRecap";
 import { paymentPlan } from "../lib/venmo";
 import { weekendSignOff } from "../lib/signOff";
@@ -11,7 +13,7 @@ import { applyFields } from "../lib/fieldPatch";
 
 const money = (n) => `${n < 0 ? "−" : "+"}$${Math.abs(n).toLocaleString()}`;
 
-export default function WinningsScreen({ event, library, archived = false, saveEvent = null, weekendLabel = "" }) {
+export default function WinningsScreen({ event, library, archived = false, saveEvent = null, weekendLabel = "", canAct = true }) {
   const { players = [], rounds = {}, buyIn = 100, weekendBuyIn, games = {} } = event;
   const courses = coursesFor(event, library);
   const eventForCalc = { ...event, courses };
@@ -21,6 +23,7 @@ export default function WinningsScreen({ event, library, archived = false, saveE
   const signOff = weekendSignOff(event);
   const plan = paymentPlan(transfers, players, { note: weekendLabel || event.name || "Golf weekend", paid: event.paid || {} });
   // One field per payment, so two people ticking at once don't undo each other.
+  const bank = event.banker != null ? bankerPlan(settlement.rows, event.banker, { note: weekendLabel || event.name || "Golf weekend", paid: event.paid || {} }) : null;
   function togglePaid(p, on) {
     const f = { [`paid.${p.key}`]: on ? { at: Date.now() } : null };
     saveEvent(applyFields(event, f), f);
@@ -180,8 +183,13 @@ export default function WinningsScreen({ event, library, archived = false, saveE
           </div>
         )}
 
-        <SettleUp plan={plan} signOff={signOff} archived={archived}
-          onTogglePaid={saveEvent ? togglePaid : null} />
+        {bank?.banker ? (
+          <BankSettle plan={bank} signOff={signOff} archived={archived} canAct={canAct}
+            onToggle={saveEvent && canAct ? togglePaid : null} />
+        ) : (
+          <SettleUp plan={plan} signOff={signOff} archived={archived}
+            onTogglePaid={saveEvent && canAct ? togglePaid : null} />
+        )}
       </Section>
 
       {/* ── Scatts ── */}

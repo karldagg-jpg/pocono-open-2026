@@ -38,6 +38,12 @@ export function venmoPayLink(handle, amount, note = "") {
   return `https://venmo.com/${encodeURIComponent(h.handle)}?${q.toString()}`;
 }
 
+/** A link that opens Venmo to request money from someone. */
+export function venmoRequestLink(handle, amount, note = "") {
+  const pay = venmoPayLink(handle, amount, note);
+  return pay ? pay.replace("txn=pay", "txn=charge") : null;
+}
+
 /** Stable key for one payment, so "paid" can be ticked off. Changes if the amount does. */
 export function paymentKey(t) {
   return `${t.fromId}_${t.toId}_${Math.round(cents(t.amount) * 100)}`;

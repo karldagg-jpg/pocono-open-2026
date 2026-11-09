@@ -99,6 +99,8 @@ export default function GamesScreen({ event, saveEvent, library }) {
   // Winners picked here are remembered as edits, so saving writes just those
   // holes and never the results other phones recorded on the course.
   const [ctpEdits, setCtpEdits] = useState({});
+  // One person collects the buy-ins and settles with everyone.
+  const [banker, setBanker] = useState(event.banker ?? "");
   function setCTPWinner(roundNum, holeIdx, pid) {
     const winner = pid === "" ? null : Number(pid);
     const results = { ...(games.ctp.results || {}) };
@@ -119,7 +121,8 @@ export default function GamesScreen({ event, saveEvent, library }) {
     const birdiePool = birdiePoolEnabled
       ? { enabled: true, ...Object.fromEntries(ids.map((r) => [r, birdiePoolRounds[r] !== false])) }
       : false;
-    const f = gamesSettingsFields({ games, useIndexHcp, birdiePool, weekendBuyIn, optOuts, birdieOptOuts }, ctpEdits);
+    const f = { ...gamesSettingsFields({ games, useIndexHcp, birdiePool, weekendBuyIn, optOuts, birdieOptOuts }, ctpEdits),
+      banker: banker === "" ? null : Number(banker) };
     saveEvent(applyFields(event, f), f);
     setCtpEdits({});
   }
@@ -164,6 +167,16 @@ export default function GamesScreen({ event, saveEvent, library }) {
             />
           </div>
         </div>
+        {/* Who collects the buy-ins. With someone holding the money, Winnings
+            settles everyone against them instead of player to player. */}
+        <label style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "12px", fontSize: "14px", color: CREAM }}>
+          <span style={{ flex: 1 }}>Who's holding the money?</span>
+          <select value={banker === null ? "" : String(banker)} onChange={(e) => setBanker(e.target.value)} aria-label="Who's holding the money"
+            style={{ padding: "8px 10px", borderRadius: "8px", border: "1px solid #c8d0c8", background: "#fff", fontFamily: FB, fontSize: "14px", color: CREAM }}>
+            <option value="">Nobody — players pay each other</option>
+            {players.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </label>
       </div>
 
       {/* Players in */}
