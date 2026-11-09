@@ -45,6 +45,7 @@ const SCREENS = {
   SetupScreen: (event) => ({ event, library: LIB, saveEvent: noop, authed: true, setAdminPin: noop }),
   ReplayScreen: (event) => ({ event, library: LIB }),
   ThursdayScreen: (event) => ({ event, saveEvent: noop }),
+  RecordScreen: (event) => ({ event, library: LIB, weekendIndex: archive.index, weekendId: "pocono-2026" }),
 };
 
 for (const [wname, event] of Object.entries(WEEKENDS)) {

@@ -9,6 +9,7 @@ import ScoringScreen from "./components/ScoringScreen";
 import ScattsScreen from "./components/ScattsScreen";
 import LeaderboardScreen from "./components/LeaderboardScreen";
 import WinningsScreen from "./components/WinningsScreen";
+import RecordScreen from "./components/RecordScreen";
 import GamesScreen from "./components/GamesScreen";
 import ReplayScreen from "./components/ReplayScreen";
 import ThursdayScreen from "./components/ThursdayScreen";
@@ -36,6 +37,7 @@ const TABS = [
   { id: "thursday",   label: "Thursday" },
   { id: "sixies",      label: "Sixies" },
   { id: "casual",      label: "Casual" },
+  { id: "record",      label: "Record" },
 ];
 
 // The menu. Every id in TABS must be in exactly one of these lists, or the
@@ -48,7 +50,7 @@ const TABS = [
 // weekend still needs players or courses.
 const PLAY = ["live", "leaderboard", "scoring", "scatts", "winnings", "thursday"];
 const GET_READY = ["setup", "courses", "games", "pairings"];
-const EXTRAS = ["replay", "sixies", "casual"];
+const EXTRAS = ["record", "replay", "sixies", "casual"];
 
 const DEFAULT_EVENT = {
   name: "Pocono Open 2026",
@@ -61,7 +63,7 @@ const DEFAULT_EVENT = {
 
 // Admin PIN — stored in Firestore as event.adminPin
 // Read-only screens (leaderboard, scatts, winnings) don't require PIN
-const READ_ONLY_SCREENS = ["live", "leaderboard", "scatts", "winnings", "casual"];
+const READ_ONLY_SCREENS = ["live", "leaderboard", "scatts", "winnings", "casual", "record"];
 
 export default function App() {
   const [screen, setScreen] = useState("leaderboard");
@@ -349,6 +351,7 @@ export default function App() {
           {screen === "thursday"    && <ThursdayScreen    event={event} saveEvent={saveEvent} />}
           {screen === "sixies"      && <SixiesScreen      event={event} saveEvent={saveEvent} library={library} />}
           {screen === "casual"      && <CasualScreen      library={library} />}
+          {screen === "record"      && <RecordScreen      event={event} library={library} weekendIndex={weekendIndex} weekendId={weekendId} />}
           </>)}
         </div>
       )}
