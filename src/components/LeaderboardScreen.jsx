@@ -1,10 +1,14 @@
 import { CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
 import { calcLeaderboard, playerCourseHcp, totalPar } from "../lib/golfLogic";
+import { roundIds } from "../lib/rounds";
+import { fmtIndex } from "../lib/format";
 
 export default function LeaderboardScreen({ event, library }) {
   const { rounds = {} } = event;
   const courses = { ...(event.courses || {}), ...library };
   const board = calcLeaderboard({ ...event, courses });
+  // roundNets[i] belongs to ids[i] — the weekend's own rounds, however many.
+  const ids = roundIds(event);
 
   function coursePar(rNum) {
     const round = rounds[rNum];
@@ -16,7 +20,7 @@ export default function LeaderboardScreen({ event, library }) {
   // Calculate total par across all played rounds for each player
   function totalParPlayed(row) {
     let tp = 0;
-    [1, 2, 3].forEach((rNum, ri) => {
+    ids.forEach((rNum, ri) => {
       if (row.roundNets[ri] !== null) {
         const par = coursePar(rNum);
         if (par) tp += par;
@@ -27,7 +31,8 @@ export default function LeaderboardScreen({ event, library }) {
 
   // Build previous round rankings for movement arrows
   // After round N, compare position to what it was after round N-1
-  const maxRound = [3, 2, 1].find((r) => board.some((row) => row.roundNets[r - 1] !== null)) || 0;
+  // How many rounds in (1-based position), not the round's number.
+  const maxRound = [...ids.keys()].reverse().map((i) => i + 1).find((n) => board.some((row) => row.roundNets[n - 1] !== null)) || 0;
   let prevRanks = {};
   if (maxRound >= 2) {
     // Simulate leaderboard with only rounds up to maxRound-1
@@ -57,7 +62,7 @@ export default function LeaderboardScreen({ event, library }) {
         Leaderboard
       </div>
       <div style={{ color: M, fontSize: "14px", marginBottom: "18px" }}>
-        Net scores · 3 rounds · Low total wins
+        Net scores · {ids.length} round{ids.length === 1 ? "" : "s"} · Low total wins
       </div>
 
       <div className="card2">
@@ -65,7 +70,7 @@ export default function LeaderboardScreen({ event, library }) {
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "520px" }}>
             <thead>
               <tr style={{ borderBottom: `1px solid rgba(201,168,76,0.25)` }}>
-                {["#", "", "Player", "HCP", "R1", "R2", "R3", "Total", "+/−"].map((h, i) => (
+                {["#", "", "Player", "HCP", ...ids.map((r) => `R${r}`), "Total", "+/−"].map((h, i) => (
                   <td key={i} style={{
                     padding: "9px 8px", color: M, textAlign: i >= 4 ? "center" : "left",
                     fontSize: "11px", letterSpacing: "0.08em", textTransform: "uppercase",
@@ -103,10 +108,10 @@ export default function LeaderboardScreen({ event, library }) {
                     <td style={{ padding: "10px 8px" }}>
                       <div style={{ fontSize: "14px", color: rank <= 3 ? CREAM : M, fontWeight: rank <= 3 ? 600 : 400 }}>{p.name}</div>
                     </td>
-                    <td style={{ padding: "10px 8px", color: GOLD, fontSize: "13px" }}>{p.hcpIndex.toFixed(1)}</td>
-                    {[0, 1, 2].map((ri) => {
+                    <td style={{ padding: "10px 8px", color: GOLD, fontSize: "13px" }}>{fmtIndex(p.hcpIndex)}</td>
+                    {ids.map((rNum, ri) => {
                       const net = row.roundNets[ri];
-                      const par = coursePar(ri + 1);
+                      const par = coursePar(rNum);
                       const diff = net !== null && par ? net - par : null;
                       return (
                         <td key={ri} style={{ padding: "10px 8px", textAlign: "center" }}>

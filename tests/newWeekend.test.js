@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import fs from "fs";
 import path from "path";
 import { cloneWeekend, describeClone, blankRounds, resetGames, NOT_CARRIED } from "../src/lib/newWeekend.js";
+import { playersWithoutIndex } from "../src/lib/weekendSetup.js";
 
 const archive = JSON.parse(fs.readFileSync(path.join(process.cwd(), "archives/pocono-2026.json"), "utf8"));
 const POCONO = archive.event;
@@ -67,8 +68,38 @@ describe("cloneWeekend — from the real Pocono event", () => {
 
   it("can wipe indexes for a fresh assessment", () => {
     const next = cloneWeekend(POCONO, { label: "x", resetIndexes: true });
-    expect(next.players.every(p => p.hcpIndex === 0)).toBe(true);
+    expect(next.players.every(p => p.hcpIndex === null)).toBe(true);
     expect(next.players).toHaveLength(12); // still everyone
+  });
+
+  it("leaves wiped indexes blank, so the readiness check names every player", () => {
+    // 0 would be a scratch golfer and sail through — that was the bug.
+    const next = cloneWeekend(POCONO, { label: "x", resetIndexes: true });
+    expect(playersWithoutIndex(next)).toHaveLength(12);
+  });
+
+  it("re-shares the scats pot across four rounds, keeping the total", () => {
+    const next = cloneWeekend(POCONO, { label: "x", roundCount: 4 });
+    const pbr = next.games.scatts.potByRound;
+    expect(Object.keys(pbr)).toEqual(["1", "2", "3", "4"]);
+    expect(Object.values(pbr).reduce((a, b) => a + b, 0)).toBe(500);   // 100 + 100 + 300
+  });
+
+  it("re-shares across two rounds too", () => {
+    const pbr = cloneWeekend(POCONO, { label: "x", roundCount: 2 }).games.scatts.potByRound;
+    expect(pbr).toEqual({ 1: 250, 2: 250 });
+  });
+
+  it("keeps the birdie pool switched on for a round that didn't exist before", () => {
+    const bp = cloneWeekend(POCONO, { label: "x", roundCount: 4 }).games.birdiePool;
+    expect(bp[4]).toBe(true);
+    expect(bp.enabled).toBe(true);
+  });
+
+  it("carries a round's birdie pool switch when it was off", () => {
+    const src = { ...POCONO, games: { ...POCONO.games, birdiePool: { enabled: true, 1: true, 2: false, 3: true } } };
+    const bp = cloneWeekend(src, { label: "x", roundCount: 3 }).games.birdiePool;
+    expect(bp[2]).toBe(false);
   });
 
   it("leaves last weekend's scores behind", () => {

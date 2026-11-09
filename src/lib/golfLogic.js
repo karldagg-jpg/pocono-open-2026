@@ -1,4 +1,5 @@
 import { playersAtRound } from "./handicapLock.js";
+import { roundIds, roundCount } from "./rounds.js";
 
 // ── Handicap ──────────────────────────────────────────────────────────────────
 export function courseHandicap(index, slope, rating, totalPar) {
@@ -176,7 +177,7 @@ export function calcLeaderboard(event) {
   return players
     .map(p => {
       const roundNets = [], roundGross = [];
-      [1, 2, 3].forEach(rNum => {
+      roundIds(event).forEach(rNum => {
         const round = rounds[rNum];
         if (!round) { roundNets.push(null); roundGross.push(null); return; }
         const course = courses[round.courseId];
@@ -217,7 +218,7 @@ export function calcLowNet(event) {
   if (!pot || !players.length) return { payouts: {}, positions: [], pot };
 
   const board    = calcLeaderboard(event).filter(r => players.some(p => p.id === r.player.id));
-  const finished = board.filter(r => r.roundsPlayed >= (cfg.minRounds || 3));
+  const finished = board.filter(r => r.roundsPlayed >= (cfg.minRounds || roundCount(event)));
   if (!finished.length) return { payouts: {}, positions: [], pot };
 
   const positions = [];
@@ -279,7 +280,7 @@ export function calcHIOBonus(event) {
   const pot = cfg.pot || 0;
 
   const hioWinners = [];
-  [1, 2, 3].forEach(rNum => {
+  roundIds(event).forEach(rNum => {
     const round = rounds[rNum];
     if (!round) return;
     const course = courses[round.courseId];
@@ -311,7 +312,7 @@ export function calcWinnings(event) {
 
   const potByRound = games.scatts?.potByRound;
 
-  [1, 2, 3].forEach(rNum => {
+  roundIds(event).forEach(rNum => {
     const round = rounds[rNum];
     if (!round) return;
     const course = courses[round.courseId];
@@ -323,9 +324,9 @@ export function calcWinnings(event) {
     if (potByRound && potByRound[rNum]) {
       scattsBuyIn = potByRound[rNum] / Math.max(players.length, 1);
     } else if (games.scatts?.enabled && games.scatts?.pot) {
-      scattsBuyIn = games.scatts.pot / 3 / Math.max(players.length, 1);
+      scattsBuyIn = games.scatts.pot / roundCount(event) / Math.max(players.length, 1);
     } else {
-      scattsBuyIn = weekendBuyIn ? weekendBuyIn / 3 : buyIn;
+      scattsBuyIn = weekendBuyIn ? weekendBuyIn / roundCount(event) : buyIn;
     }
 
     const { holeWinners, scattValue } = calcScatts(round.scores || {}, course, playersAtRound(event, rNum, players), scattsBuyIn, useIndex);

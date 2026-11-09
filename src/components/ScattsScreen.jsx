@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { CARD, CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
 import { calcScatts } from "../lib/golfLogic";
+import { roundIds, roundCount, isFinalRound } from "../lib/rounds";
 
 export default function ScattsScreen({ event, library }) {
   const { players = [], rounds = {}, buyIn = 100, weekendBuyIn, games = {} } = event;
@@ -13,9 +14,9 @@ export default function ScattsScreen({ event, library }) {
   const scattsBuyIn = potByRound?.[activeRound]
     ? potByRound[activeRound] / Math.max(players.length, 1)
     : games.scatts?.enabled && games.scatts?.pot
-    ? games.scatts.pot / 3 / Math.max(players.length, 1)
+    ? games.scatts.pot / roundCount(event) / Math.max(players.length, 1)
     : weekendBuyIn
-    ? weekendBuyIn / 3
+    ? weekendBuyIn / roundCount(event)
     : buyIn;
   const totalPot = players.length * scattsBuyIn;
 
@@ -35,7 +36,7 @@ export default function ScattsScreen({ event, library }) {
 
       {/* Round tabs */}
       <div className="round-tabs">
-        {[1, 2, 3].map((r) => (
+        {roundIds(event).map((r) => (
           <button key={r} onClick={() => setActiveRound(r)}
             className={`round-tab${activeRound === r ? " active" : ""}`}>
             Round {r}

@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
 
+import { roundIds, splitAcrossRounds, perRound } from "../lib/rounds";
+
 const GAME_KEYS = ["scatts", "lowNet", "ctp", "hio"];
 const GAME_LABELS = { scatts: "Scats / Skins", lowNet: "Low Net Tournament", ctp: "Closest to Pin", hio: "Hole in One Bonus" };
 
 export default function GamesScreen({ event, saveEvent, library }) {
   const { players = [], games: savedGames = {} } = event;
   const courses = { ...(event.courses || {}), ...library };
+  const ids = roundIds(event);
 
   const [weekendBuyIn, setWeekendBuyIn] = useState(event.weekendBuyIn || 0);
   const [useIndexHcp, setUseIndexHcp]   = useState(savedGames.useIndexHcp !== false);
@@ -16,13 +19,13 @@ export default function GamesScreen({ event, saveEvent, library }) {
   });
   const [birdiePoolRounds, setBirdiePoolRounds] = useState(() => {
     const saved = savedGames.birdiePool;
-    if (!saved || saved === true) return { 1: true, 2: true, 3: true };
-    return { 1: saved[1] !== false, 2: saved[2] !== false, 3: saved[3] !== false };
+    if (!saved || saved === true) return perRound(ids, true);
+    return Object.fromEntries(ids.map((r) => [r, saved[r] !== false]));
   });
   const [birdieOptOuts, setBirdieOptOuts] = useState(() => new Set(event.birdieOptOuts || []));
   const [games, setGames] = useState(() => {
     const defaults = {
-      scatts: { enabled: true, potByRound: { 1: 0, 2: 0, 3: 0 } },
+      scatts: { enabled: true, potByRound: perRound(ids, 0) },
       lowNet: { enabled: true, pot: 0, payoutPcts: [50, 30, 20] },
       ctp: { enabled: true, pot: 0, holes: {}, results: {} },
       hio: { enabled: true, pot: 0 },
@@ -31,10 +34,9 @@ export default function GamesScreen({ event, saveEvent, library }) {
     GAME_KEYS.forEach((k) => { g[k] = { ...defaults[k], ...(savedGames[k] || {}) }; });
     // Migrate legacy scatts.pot → split equally across rounds
     if (g.scatts && !g.scatts.potByRound && g.scatts.pot) {
-      const perRound = Math.floor(g.scatts.pot / 3);
-      g.scatts.potByRound = { 1: perRound, 2: perRound, 3: g.scatts.pot - perRound * 2 };
+      g.scatts.potByRound = splitAcrossRounds(g.scatts.pot, ids, { remainderTo: "last" });
     } else if (g.scatts && !g.scatts.potByRound) {
-      g.scatts.potByRound = { 1: 0, 2: 0, 3: 0 };
+      g.scatts.potByRound = perRound(ids, 0);
     }
     return g;
   });
@@ -71,8 +73,7 @@ export default function GamesScreen({ event, saveEvent, library }) {
     enabled.forEach((k, i) => {
       const thisShare = share + (i === 0 ? totalPot - share * enabled.length : 0);
       if (k === "scatts") {
-        const perRound = Math.floor(thisShare / 3);
-        next[k] = { ...next[k], potByRound: { 1: perRound + (thisShare - perRound * 3), 2: perRound, 3: perRound } };
+        next[k] = { ...next[k], potByRound: splitAcrossRounds(thisShare, ids) };
       } else {
         next[k] = { ...next[k], pot: thisShare };
       }
@@ -195,7 +196,7 @@ export default function GamesScreen({ event, saveEvent, library }) {
         {GAME_KEYS.map((key) => {
           const g = games[key];
           if (key === "scatts") {
-            const pbr = g.potByRound || { 1: 0, 2: 0, 3: 0 };
+            const pbr = g.potByRound || perRound(ids, 0);
             const total = Object.values(pbr).reduce((a, b) => a + (Number(b) || 0), 0);
             return (
               <div key={key} style={{ padding: "12px 14px", borderBottom: `1px solid #d0d8d0` }}>
@@ -205,8 +206,8 @@ export default function GamesScreen({ event, saveEvent, library }) {
                   {total > 0 && <div style={{ fontSize: "13px", color: M }}>${total.toLocaleString()}</div>}
                 </div>
                 {g.enabled && (
-                  <div style={{ paddingLeft: "28px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
-                    {[1, 2, 3].map(rNum => (
+                  <div style={{ paddingLeft: "28px", display: "grid", gridTemplateColumns: `repeat(${Math.min(ids.length, 3)}, 1fr)`, gap: "8px" }}>
+                    {ids.map(rNum => (
                       <div key={rNum}>
                         <div style={{ fontSize: "11px", color: M, marginBottom: "3px" }}>Round {rNum}</div>
                         <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
@@ -287,7 +288,7 @@ export default function GamesScreen({ event, saveEvent, library }) {
           <div className="card-header">Closest to Pin — Holes & Winners</div>
           <div style={{ padding: "10px 14px 4px" }}>
             <div className="round-tabs">
-              {[1, 2, 3].map((r) => (
+              {ids.map((r) => (
                 <button key={r} onClick={() => setCtpRound(r)}
                   className={`round-tab${ctpRound === r ? " active" : ""}`}>
                   Round {r}
@@ -365,8 +366,8 @@ export default function GamesScreen({ event, saveEvent, library }) {
                 <div>Eagle — $5 per other player</div>
                 <div>Hole in One — $10 per other player (supersedes eagle)</div>
               </div>
-              <div style={{ paddingLeft: "28px", display: "flex", gap: "16px" }}>
-                {[1, 2, 3].map(r => (
+              <div style={{ paddingLeft: "28px", display: "flex", flexWrap: "wrap", gap: "8px 16px" }}>
+                {ids.map(r => (
                   <label key={r} style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontSize: "13px", color: birdiePoolRounds[r] ? CREAM : M }}>
                     <input type="checkbox" checked={birdiePoolRounds[r] !== false}
                       onChange={e => setBirdiePoolRounds(prev => ({ ...prev, [r]: e.target.checked }))}

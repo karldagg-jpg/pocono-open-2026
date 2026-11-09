@@ -2,6 +2,8 @@ import { useState } from "react";
 import { CARD, CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
 import { autoPairRound3 } from "../lib/golfLogic";
 import { groupList, toPairingsObject, addToGroup, removeFromGroups, unassignedPlayers, groupsNeeded, autoPair, DEFAULT_GROUP_SIZE } from "../lib/pairings";
+import { roundIds, roundCount, isFinalRound } from "../lib/rounds";
+import { fmtIndex } from "../lib/format";
 
 export default function PairingsScreen({ event, saveEvent }) {
   const players = event.players || [];
@@ -47,12 +49,12 @@ export default function PairingsScreen({ event, saveEvent }) {
         Pairings
       </div>
       <div style={{ color: M, fontSize: "14px", marginBottom: "18px" }}>
-        Assign foursomes per round · Round 3 auto-pairs by standings
+        Assign groups per round · the final round auto-pairs by standings
       </div>
 
       {/* Round tabs */}
       <div style={{ display: "flex", gap: "6px", marginBottom: "18px" }}>
-        {[1, 2, 3].map((r) => (
+        {roundIds(event).map((r) => (
           <button
             key={r}
             onClick={() => setActiveRound(r)}
@@ -74,8 +76,8 @@ export default function PairingsScreen({ event, saveEvent }) {
         ))}
       </div>
 
-      {/* Auto-pair button for round 3 */}
-      {activeRound === 3 && (
+      {/* Auto-pair button for the final round */}
+      {isFinalRound(event, activeRound) && (
         <button onClick={autoFill} style={{ ...btnStyle, marginBottom: "16px", background: GO }}>
           Auto-pair by standings
         </button>
@@ -113,7 +115,7 @@ export default function PairingsScreen({ event, saveEvent }) {
           <div style={{ display: "grid", gap: "6px" }}>
             {unassigned.map((p) => (
               <div key={p.id} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <div style={{ flex: 1, fontSize: "14px", color: M }}>{p.name} <span style={{ color: GOLD, fontSize: "12px" }}>{p.hcpIndex.toFixed(1)}</span></div>
+                <div style={{ flex: 1, fontSize: "14px", color: M }}>{p.name} <span style={{ color: GOLD, fontSize: "12px" }}>{fmtIndex(p.hcpIndex)}</span></div>
                 {groups.map((_, gi) => (
                   <button
                     key={gi}

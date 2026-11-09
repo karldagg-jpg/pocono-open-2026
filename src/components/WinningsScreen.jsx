@@ -1,6 +1,7 @@
 import { CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
 import { calcWinnings, calcLeaderboard, calcScatts, calcLowNet, calcCTP, calcBirdiePool, calcHIOBonus, gamblingPlayers, birdiePoolPlayers } from "../lib/golfLogic";
 import { settleWeekend, settlementTransfers } from "../lib/settlement";
+import { roundIds, roundCount } from "../lib/rounds";
 import { useState } from "react";
 
 const money = (n) => `${n < 0 ? "−" : "+"}$${Math.abs(n).toLocaleString()}`;
@@ -15,7 +16,8 @@ export default function WinningsScreen({ event, library, archived = false }) {
   const transfers = settlementTransfers(settlement.rows);
 
   const potByRound = games.scatts?.potByRound;
-  const scattsByRound = [1, 2, 3].map((rNum) => {
+  const ids = roundIds(event);
+  const scattsByRound = ids.map((rNum) => {
     const round = rounds[rNum];
     if (!round) return null;
     const course = courses[round.courseId];
@@ -24,7 +26,7 @@ export default function WinningsScreen({ event, library, archived = false }) {
     if (potByRound?.[rNum]) {
       roundBuyIn = potByRound[rNum] / Math.max(players.length, 1);
     } else if (games.scatts?.enabled && games.scatts?.pot) {
-      roundBuyIn = games.scatts.pot / 3 / Math.max(players.length, 1);
+      roundBuyIn = games.scatts.pot / roundCount(event) / Math.max(players.length, 1);
     } else {
       roundBuyIn = buyIn;
     }
@@ -40,7 +42,7 @@ export default function WinningsScreen({ event, library, archived = false }) {
   const birdiePoolEnabled = bpConfig === true || (bpConfig && typeof bpConfig === "object" && bpConfig.enabled !== false);
   const gpPlayers = gamblingPlayers(eventForCalc);
   const bpPlayers = birdiePoolPlayers(eventForCalc);
-  const birdieByRound = birdiePoolEnabled ? [1, 2, 3].map(rNum => {
+  const birdieByRound = birdiePoolEnabled ? ids.map(rNum => {
     const roundEnabled = bpConfig === true || bpConfig?.[rNum] !== false;
     if (!roundEnabled) return null;
     const round = rounds[rNum];
@@ -58,7 +60,7 @@ export default function WinningsScreen({ event, library, archived = false }) {
     bpPlayers.forEach(p => { birdieNetBalance[p.id] += r.netBalance[p.id] || 0; });
   });
 
-  const numRounds = [1, 2, 3].filter((r) => rounds[r] && courses[rounds[r]?.courseId] && Object.keys(rounds[r]?.scores || {}).length).length;
+  const numRounds = ids.filter((r) => rounds[r] && courses[rounds[r]?.courseId] && Object.keys(rounds[r]?.scores || {}).length).length;
   const totalCollected = weekendBuyIn
     ? players.length * weekendBuyIn
     : players.length * buyIn * numRounds;
@@ -195,14 +197,14 @@ export default function WinningsScreen({ event, library, archived = false }) {
           {scattsByRound.map((r, ri) => {
             if (!r) return (
               <div key={ri} style={{ padding: "10px 14px", borderBottom: `1px solid rgba(201,168,76,0.08)`, display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: M, fontSize: "13px" }}>Round {ri + 1}</span>
+                <span style={{ color: M, fontSize: "13px" }}>Round {ids[ri]}</span>
                 <span style={{ color: M, fontSize: "12px" }}>Not scored</span>
               </div>
             );
             return (
               <div key={ri} style={{ padding: "10px 14px", borderBottom: `1px solid rgba(201,168,76,0.08)` }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-                  <span style={{ color: CREAM, fontSize: "13px", fontWeight: 600 }}>Round {ri + 1}</span>
+                  <span style={{ color: CREAM, fontSize: "13px", fontWeight: 600 }}>Round {ids[ri]}</span>
                   <span style={{ color: GO, fontSize: "12px" }}>
                     ${r.totalPot.toLocaleString()} · {r.totalScatts} holes · ${r.scattValue.toFixed(0)}/hole
                   </span>
@@ -224,7 +226,7 @@ export default function WinningsScreen({ event, library, archived = false }) {
         <Section title="Low Net Tournament" pot={lnPot} color={GO}>
           {lnPositions.length === 0 ? (
             <div style={{ padding: "12px 14px", fontSize: "13px", color: M }}>
-              Complete all 3 rounds to see tournament results.
+              Complete all {ids.length} rounds to see tournament results.
             </div>
           ) : (
             <>
@@ -267,7 +269,7 @@ export default function WinningsScreen({ event, library, archived = false }) {
       {/* ── Closest to Pin ── */}
       {(games.ctp?.enabled !== false) && (
         <Section title="Closest to Pin" pot={ctpPot} color={GOLD}>
-          {[1, 2, 3].map((rNum) => {
+          {ids.map((rNum) => {
             const holes = ctpHoles[rNum] || [];
             if (!holes.length) return (
               <div key={rNum} style={{ padding: "10px 14px", borderBottom: `1px solid rgba(201,168,76,0.08)`, display: "flex", justifyContent: "space-between" }}>
@@ -319,13 +321,13 @@ export default function WinningsScreen({ event, library, archived = false }) {
           {birdieByRound.map((r, ri) => {
             if (!r) return (
               <div key={ri} style={{ padding: "10px 14px", borderBottom: `1px solid rgba(201,168,76,0.08)`, display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: M, fontSize: "13px" }}>Round {ri + 1}</span>
+                <span style={{ color: M, fontSize: "13px" }}>Round {ids[ri]}</span>
                 <span style={{ color: M, fontSize: "12px" }}>Not scored</span>
               </div>
             );
             return (
               <div key={ri} style={{ padding: "10px 14px", borderBottom: `1px solid rgba(201,168,76,0.08)` }}>
-                <div style={{ fontSize: "13px", fontWeight: 600, color: CREAM, marginBottom: "6px" }}>Round {ri + 1}</div>
+                <div style={{ fontSize: "13px", fontWeight: 600, color: CREAM, marginBottom: "6px" }}>Round {ids[ri]}</div>
                 {r.holesDetail.length === 0 ? (
                   <div style={{ fontSize: "12px", color: M }}>No birdies or better yet</div>
                 ) : r.holesDetail.map(hd => (

@@ -5,6 +5,8 @@ import { groupList } from "../lib/pairings";
 import { holeState, scattWorth, birdiePoolHole } from "../lib/holeMoney";
 import { playersAtRound, lockStatus, lockRound, unlockRound } from "../lib/handicapLock";
 import { savePlayerScore, saveRoundCourse } from "../firebase/client";
+import { roundIds, roundCount, isFinalRound } from "../lib/rounds";
+import { fmtIndex } from "../lib/format";
 
 const LOST_BALL_SECS = 180;
 
@@ -402,7 +404,7 @@ export default function ScoringScreen({ event, saveEvent, library }) {
 
       {/* Round tabs */}
       <div className="round-tabs">
-        {[1, 2, 3].map((r) => (
+        {roundIds(event).map((r) => (
           <button key={r}
             onClick={() => { setActiveRound(r); setActiveHole(0); }}
             className={`round-tab${activeRound === r ? " active" : ""}`}>
@@ -602,7 +604,7 @@ export default function ScoringScreen({ event, saveEvent, library }) {
             const hs = holeState(groupPlayers, course, scores, activeHole, useIndex);
             const bp = birdiePoolHole(groupPlayers, course, scores, activeHole);
             const scattPot = games?.scatts?.potByRound?.[activeRound]
-              ?? (games?.scatts?.pot ? games.scatts.pot / 3 : 0);
+              ?? (games?.scatts?.pot ? games.scatts.pot / roundCount(event) : 0);
             const worth = scattPot
               ? scattWorth(scores, course, playersAtRound(event, activeRound, gamblingPlayers(event)), scattPot, useIndex)
               : null;
@@ -750,7 +752,7 @@ export default function ScoringScreen({ event, saveEvent, library }) {
                     <div>
                       <div style={{ fontSize: "14px", fontWeight: 700, color: CREAM }}>{p.name}</div>
                       <div style={{ fontSize: "11px", color: M, marginTop: "1px" }}>
-                        {useIndex ? `Idx ${p.hcpIndex.toFixed(1)} → ${chcp}` : `HCP ${chcp}`}{strokes > 0 ? ` · +${strokes}` : ""}
+                        {useIndex ? `Idx ${fmtIndex(p.hcpIndex)} → ${chcp}` : `HCP ${chcp}`}{strokes > 0 ? ` · +${strokes}` : ""}
                       </div>
                     </div>
                     {/* Net score badge */}

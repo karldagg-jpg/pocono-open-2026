@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { CARD2, CREAM, G, GO, M, R, FD, FB } from "../constants/theme";
 import { playerCourseHcp, strokesOnHole, netHole } from "../lib/golfLogic";
+import { roundIds, roundCount, isFinalRound } from "../lib/rounds";
 
 const PLAYER_COLORS = [
   "#1a6b3a", "#b8600a", "#2a72b8", "#8b2a8b",
@@ -241,7 +242,7 @@ export default function ReplayScreen({ event, library }) {
       </div>
 
       <div className="round-tabs" style={{ marginBottom: "20px" }}>
-        {[1, 2, 3].map(r => {
+        {roundIds(event).map(r => {
           const hasScores = rounds[r] && Object.keys(rounds[r].scores || {}).length > 0;
           return (
             <button key={r} onClick={() => setActiveRound(r)}

@@ -3,6 +3,7 @@ import { BG, CARD, CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/
 import { buildTestEvent } from "../lib/testData";
 import { resetEvent } from "../firebase/client";
 import { weekendReadiness, MISSING, WARN } from "../lib/weekendSetup";
+import { fmtIndex } from "../lib/format";
 
 export default function SetupScreen({ event, saveEvent, setAdminPin, authed, library = {} }) {
   // The field used to be capped at twelve, which made a sixteen-player
@@ -169,7 +170,7 @@ export default function SetupScreen({ event, saveEvent, setAdminPin, authed, lib
                   <div style={{ fontSize: "14px", color: CREAM, fontWeight: 500 }}>{p.name}</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: "16px", fontWeight: 700, color: GOLD }}>{p.hcpIndex.toFixed(1)}</div>
+                  <div style={{ fontSize: "16px", fontWeight: 700, color: GOLD }}>{fmtIndex(p.hcpIndex)}</div>
                   <div style={{ fontSize: "10px", color: M }}>index</div>
                 </div>
                 <button onClick={() => startEdit(p)} style={{ ...ghostBtn, fontSize: "12px", padding: "4px 10px" }}>Edit</button>
