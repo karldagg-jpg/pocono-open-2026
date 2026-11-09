@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { G, GO, GOLD, M, R, CREAM, CARD, CARD2, FB, FD } from "../constants/theme";
 import { playerCourseHcp } from "../lib/golfLogic";
+import { coursesFor } from "../lib/courses";
 
 // ── Scoring helpers ────────────────────────────────────────────────────────────
 // Standard Stableford: net double bogey+ = 0, bogey 1, par 2, birdie 3, eagle 4…
@@ -52,7 +53,7 @@ const NINES = {
 // the same screen serves both without knowing the difference.
 export default function SixiesScreen({ event, saveEvent, library, players: playersProp, courses: coursesProp, sixies: sixiesProp, saveSixies }) {
   const players = playersProp || event?.players || [];
-  const courses = coursesProp || { ...(event?.courses || {}), ...library };
+  const courses = coursesProp || coursesFor(event, library);
   const sx = sixiesProp || event?.sixies || {};
 
   // ── Config (persisted in event.sixies) ──────────────────────────────────────

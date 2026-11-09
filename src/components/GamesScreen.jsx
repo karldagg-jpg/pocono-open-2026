@@ -2,13 +2,14 @@ import { useState } from "react";
 import { CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
 
 import { roundIds, splitAcrossRounds, perRound } from "../lib/rounds";
+import { coursesFor } from "../lib/courses";
 
 const GAME_KEYS = ["scatts", "lowNet", "ctp", "hio"];
 const GAME_LABELS = { scatts: "Scats / Skins", lowNet: "Low Net Tournament", ctp: "Closest to Pin", hio: "Hole in One Bonus" };
 
 export default function GamesScreen({ event, saveEvent, library }) {
   const { players = [], games: savedGames = {} } = event;
-  const courses = { ...(event.courses || {}), ...library };
+  const courses = coursesFor(event, library);
   const ids = roundIds(event);
 
   const [weekendBuyIn, setWeekendBuyIn] = useState(event.weekendBuyIn || 0);

@@ -96,3 +96,21 @@ export function lockPlayedRounds(event, opts = {}) {
   }
   return next;
 }
+
+// ── Saving a lock without touching anything else ─────────────────────────────
+// Locking used to save the whole weekend from this phone's copy, which wrote
+// back every round's scores as this phone last saw them. With four groups
+// scoring at once, a score posted a second earlier on another phone could be
+// overwritten. These return only the one field that changed, as a dot-path.
+
+/** The field to write to lock a round — empty if there's no such round. */
+export function lockFields(event, roundId, opts = {}) {
+  const next = lockRound(event, roundId, opts);
+  if (next === event) return {};
+  return { [`rounds.${roundId}.hcpLock`]: next.rounds[roundId].hcpLock };
+}
+
+/** The field to write to unlock a round. Null reads as unlocked everywhere. */
+export function unlockFields(roundId) {
+  return { [`rounds.${roundId}.hcpLock`]: null };
+}

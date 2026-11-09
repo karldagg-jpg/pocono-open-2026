@@ -2,10 +2,11 @@ import { CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
 import { calcLeaderboard, playerCourseHcp, totalPar } from "../lib/golfLogic";
 import { roundIds } from "../lib/rounds";
 import { fmtIndex } from "../lib/format";
+import { coursesFor } from "../lib/courses";
 
 export default function LeaderboardScreen({ event, library }) {
   const { rounds = {} } = event;
-  const courses = { ...(event.courses || {}), ...library };
+  const courses = coursesFor(event, library);
   const board = calcLeaderboard({ ...event, courses });
   // roundNets[i] belongs to ids[i] — the weekend's own rounds, however many.
   const ids = roundIds(event);

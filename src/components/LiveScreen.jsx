@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { liveRound, liveWeekend, positionDelta } from "../lib/liveBoard";
 import { boardRecap, tickerMoments } from "../lib/boardRecap";
 import { totalPar } from "../lib/golfLogic";
+import { coursesFor } from "../lib/courses";
 
 // Broadcast-style board. Deliberately dark and self-contained rather than using
 // the app's light theme — it's meant to be readable across a room or one-handed
@@ -38,7 +39,7 @@ export default function LiveScreen({ event, library, meId: meIdProp, weekendLabe
 
   // The stored event doc has no name field, so fall back to the index label.
   const title = event.name || weekendLabel || "Leaderboard";
-  const courses = useMemo(() => ({ ...(event.courses || {}), ...library }), [event.courses, library]);
+  const courses = useMemo(() => coursesFor(event, library), [event, library]);
   const ev = useMemo(() => ({ ...event, courses }), [event, courses]);
 
   const roundIds = useMemo(

@@ -4,6 +4,7 @@ import { buildTestEvent } from "../lib/testData";
 import { resetEvent } from "../firebase/client";
 import { weekendReadiness, MISSING, WARN } from "../lib/weekendSetup";
 import { fmtIndex } from "../lib/format";
+import { coursesFor } from "../lib/courses";
 
 export default function SetupScreen({ event, saveEvent, setAdminPin, authed, library = {} }) {
   // The field used to be capped at twelve, which made a sixteen-player
@@ -90,7 +91,7 @@ export default function SetupScreen({ event, saveEvent, setAdminPin, authed, lib
           collected $1,200 against $1,100 of pots and nobody noticed until the
           money was being counted. */}
       {(() => {
-        const r = weekendReadiness(event, library, { expectedPlayers: target });
+        const r = weekendReadiness(event, coursesFor(event, library), { expectedPlayers: target });
         if (!r.items.length) return null;
         const tone = (lvl) => (lvl === MISSING ? R : lvl === WARN ? GO : G);
         return (

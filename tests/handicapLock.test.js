@@ -252,3 +252,33 @@ describe("the real 2026 weekend — finalized 2026-09-20", () => {
     expect(JSON.stringify(calcWinnings(at15))).toBe(JSON.stringify(calcWinnings(POCONO)));
   });
 });
+
+import { lockFields, unlockFields } from "../src/lib/handicapLock.js";
+
+describe("lock and unlock save only the lock", () => {
+  const ev = {
+    players: [{ id: 1, name: "Karl", hcpIndex: 10.3 }, { id: 2, name: "Steve", hcpIndex: 14 }],
+    rounds: { 1: { courseId: "c", scores: { 1: [4] } }, 2: { courseId: "c", scores: {} } },
+  };
+
+  it("writes one dot-path field and nothing about scores", () => {
+    const f = lockFields(ev, 1, { now: () => 42 });
+    expect(Object.keys(f)).toEqual(["rounds.1.hcpLock"]);
+    expect(f["rounds.1.hcpLock"]).toEqual({ at: 42, indexes: { 1: 10.3, 2: 14 } });
+    expect(JSON.stringify(f)).not.toContain("scores");
+  });
+
+  it("writes nothing for a round that doesn't exist", () => {
+    expect(lockFields(ev, 9)).toEqual({});
+  });
+
+  it("unlocks by clearing the field", () => {
+    expect(unlockFields(2)).toEqual({ "rounds.2.hcpLock": null });
+  });
+
+  it("treats a cleared lock as unlocked", () => {
+    const cleared = { ...ev, rounds: { ...ev.rounds, 1: { ...ev.rounds[1], hcpLock: null } } };
+    expect(lockStatus(cleared, 1).locked).toBe(false);
+    expect(playersAtRound(cleared, 1)[0].hcpIndex).toBe(10.3);
+  });
+});

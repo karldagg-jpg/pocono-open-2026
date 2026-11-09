@@ -70,8 +70,11 @@ export async function saveCasual(all) {
 
 // Write a single player's scores for a round using dot-notation field path.
 // This is concurrent-safe: two people scoring different players won't collide.
-export async function savePlayerScore(roundNum, playerId, scores, courseId) {
+// `extra` carries other dot-path fields that belong with this save — the
+// weekend's own copy of the course, taken with the round's first score.
+export async function savePlayerScore(roundNum, playerId, scores, courseId, extra = {}) {
   const fields = {
+    ...extra,
     [`rounds.${roundNum}.scores.${playerId}`]: scores,
   };
   if (courseId) {

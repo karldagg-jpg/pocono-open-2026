@@ -3,13 +3,14 @@ import { calcWinnings, calcLeaderboard, calcScatts, calcLowNet, calcCTP, calcBir
 import { settleWeekend, settlementTransfers } from "../lib/settlement";
 import { roundIds, roundCount } from "../lib/rounds";
 import { useState } from "react";
+import { coursesFor } from "../lib/courses";
 
 const money = (n) => `${n < 0 ? "−" : "+"}$${Math.abs(n).toLocaleString()}`;
 
 export default function WinningsScreen({ event, library, archived = false }) {
   const [showTransfers, setShowTransfers] = useState(false);
   const { players = [], rounds = {}, buyIn = 100, weekendBuyIn, games = {} } = event;
-  const courses = { ...(event.courses || {}), ...library };
+  const courses = coursesFor(event, library);
   const eventForCalc = { ...event, courses };
   const winnings = calcWinnings(eventForCalc);
   const settlement = settleWeekend(eventForCalc);

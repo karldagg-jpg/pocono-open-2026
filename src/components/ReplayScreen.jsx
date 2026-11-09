@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { CARD2, CREAM, G, GO, M, R, FD, FB } from "../constants/theme";
 import { playerCourseHcp, strokesOnHole, netHole } from "../lib/golfLogic";
 import { roundIds, roundCount, isFinalRound } from "../lib/rounds";
+import { coursesFor } from "../lib/courses";
 
 const PLAYER_COLORS = [
   "#1a6b3a", "#b8600a", "#2a72b8", "#8b2a8b",
@@ -157,7 +158,7 @@ function RaceChart({ series, par }) {
 
 export default function ReplayScreen({ event, library }) {
   const { players = [], courses: eventCourses = {}, rounds = {} } = event;
-  const courses = { ...eventCourses, ...library };
+  const courses = coursesFor(event, library);
 
   const [activeRound, setActiveRound] = useState(() => {
     for (let r = 3; r >= 1; r--) {

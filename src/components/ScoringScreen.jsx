@@ -3,10 +3,11 @@ import { CARD, CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/them
 import { getEffectiveHcp, strokesOnHole, netHole, totalPar, gamblingPlayers } from "../lib/golfLogic";
 import { groupList } from "../lib/pairings";
 import { holeState, scattWorth, birdiePoolHole } from "../lib/holeMoney";
-import { playersAtRound, lockStatus, lockRound, unlockRound } from "../lib/handicapLock";
+import { playersAtRound, lockStatus, lockRound, unlockRound, lockFields, unlockFields } from "../lib/handicapLock";
 import { savePlayerScore, saveRoundCourse } from "../firebase/client";
 import { roundIds, roundCount, isFinalRound } from "../lib/rounds";
 import { fmtIndex } from "../lib/format";
+import { coursesFor, freezeFields, withFrozenCourse } from "../lib/courses";
 
 const LOST_BALL_SECS = 180;
 
@@ -182,7 +183,7 @@ function LostBallTimer() {
 
 export default function ScoringScreen({ event, saveEvent, library }) {
   const { players = [], courses: eventCourses = {}, rounds = {}, pairings = {}, games = {} } = event;
-  const courses = { ...eventCourses, ...library };
+  const courses = coursesFor(event, library);
   const [activeRound, setActiveRound] = useState(1);
   const [activeGroup, setActiveGroup] = useState(0);
   const [activeHole, setActiveHole] = useState(0); // 0-indexed
@@ -222,7 +223,10 @@ export default function ScoringScreen({ event, saveEvent, library }) {
     const playerScores = [...(scores[pid] || Array(18).fill(0))];
     playerScores[holeIdx] = isNaN(v) || v < 0 ? 0 : v;
 
-    const updated = {
+    // The round's first score is when the weekend takes its own copy of the
+    // course, so a library edit later can't re-score a round already played.
+    const freeze = freezeFields(event, library, activeRound);
+    const updated = withFrozenCourse({
       ...event,
       rounds: {
         ...rounds,
@@ -232,11 +236,11 @@ export default function ScoringScreen({ event, saveEvent, library }) {
           scores: { ...scores, [pid]: playerScores },
         },
       },
-    };
+    }, library, activeRound);
     saveEvent(updated, true);
 
     try {
-      await savePlayerScore(activeRound, pid, playerScores, round.courseId || activeRound);
+      await savePlayerScore(activeRound, pid, playerScores, round.courseId || activeRound, freeze);
     } catch (e) {
       console.warn("Score save queued offline:", e.message);
     }
@@ -461,9 +465,14 @@ export default function ScoringScreen({ event, saveEvent, library }) {
               onClick={() => {
                 if (hcpLock.locked) {
                   if (!window.confirm("Unlock? This round will go back to following today's indexes, which can change net scores and the money.")) return;
-                  saveEvent(unlockRound(event, activeRound));
+                  saveEvent(unlockRound(event, activeRound), unlockFields(activeRound));
                 } else {
-                  saveEvent(lockRound(event, activeRound));
+                  // Lock the course along with the handicaps, and save only those
+                  // two fields — never the whole weekend from this phone's copy.
+                  saveEvent(
+                    withFrozenCourse(lockRound(event, activeRound), library, activeRound),
+                    { ...lockFields(event, activeRound), ...freezeFields(event, library, activeRound) },
+                  );
                 }
               }}
               style={{

@@ -2,10 +2,11 @@ import { useState } from "react";
 import { CARD, CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
 import { calcScatts } from "../lib/golfLogic";
 import { roundIds, roundCount, isFinalRound } from "../lib/rounds";
+import { coursesFor } from "../lib/courses";
 
 export default function ScattsScreen({ event, library }) {
   const { players = [], rounds = {}, buyIn = 100, weekendBuyIn, games = {} } = event;
-  const courses = { ...(event.courses || {}), ...library };
+  const courses = coursesFor(event, library);
   const [activeRound, setActiveRound] = useState(1);
 
   const round = rounds[activeRound] || {};
