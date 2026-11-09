@@ -19,6 +19,8 @@ import { cloneWeekend, blankRounds } from "./lib/newWeekend";
 import NewWeekendScreen from "./components/NewWeekendScreen";
 import SyncMarker from "./components/SyncMarker";
 import { pendingWrites } from "./lib/pendingWrites";
+import { coursesFor } from "./lib/courses";
+import { roundsWithoutCourse } from "./lib/weekendSetup";
 
 const TABS = [
   { id: "live",        label: "Live" },
@@ -35,6 +37,18 @@ const TABS = [
   { id: "sixies",      label: "Sixies" },
   { id: "casual",      label: "Casual" },
 ];
+
+// The menu. Every id in TABS must be in exactly one of these lists, or the
+// screen is routed but can't be opened — which happened to Live and Casual.
+// tests/nav.test.js checks it.
+//
+// The play tabs never move. They used to reorder between setup and play, so
+// Live sat in a different place on Thursday than on Saturday; now everything
+// for getting ready lives under one Setup menu, which starts open while the
+// weekend still needs players or courses.
+const PLAY = ["live", "leaderboard", "scoring", "scatts", "winnings", "thursday"];
+const GET_READY = ["setup", "courses", "games", "pairings"];
+const EXTRAS = ["replay", "sixies", "casual"];
 
 const DEFAULT_EVENT = {
   name: "Pocono Open 2026",
@@ -174,20 +188,13 @@ export default function App() {
     await saveEvent({ ...event, ...patch }, patch);
   }
 
-  // Determine if event has scores entered (to decide nav mode)
+  // Still being set up: no field yet, or a round without a course. (This used
+  // to ask whether the library had any courses at all, so with a full library
+  // a brand-new weekend never counted as being set up.)
   const hasPlayers = (event.players || []).length > 0;
-  const hasCourses = Object.keys(library).length > 0;
-  const isSetupPhase = !hasPlayers || !hasCourses;
-
-  // Every id in TABS must appear in exactly one of these, or the screen is
-  // routed but unreachable — which is what happened to Live and Casual.
-  // tests/nav.test.js asserts it, so a new tab can't be added and forgotten.
-  const PRIMARY = isSetupPhase
-    ? ["setup", "courses", "games", "pairings", "thursday", "winnings"]
-    : ["live", "leaderboard", "scoring", "scatts", "winnings", "thursday"];
-  const MORE = isSetupPhase
-    ? ["live", "leaderboard", "scoring", "scatts", "replay", "sixies", "casual"]
-    : ["replay", "games", "sixies", "pairings", "courses", "setup", "casual"];
+  const isSetupPhase = !hasPlayers || roundsWithoutCourse(event, coursesFor(event, library)).length > 0;
+  const MORE = [...GET_READY, ...EXTRAS];
+  useEffect(() => { if (isSetupPhase) setMoreOpen(true); }, [weekendId, isSetupPhase]);
 
   function syncAgo() {
     if (!lastSynced) return null;
@@ -256,21 +263,26 @@ export default function App() {
           </div>
 
           <div style={{ display: "flex", gap: "4px", paddingBottom: "8px", flexWrap: "wrap" }}>
-            {PRIMARY.map((id) => {
+            {PLAY.map((id) => {
               const t = TABS.find((x) => x.id === id);
               return <NavBtn key={id} active={screen === id} onClick={() => { setScreen(id); setMoreOpen(false); }}>{t.label}</NavBtn>;
             })}
             <NavBtn active={MORE.includes(screen) || moreOpen} onClick={() => setMoreOpen((o) => !o)}>
-              {isSetupPhase ? "Play" : "Setup"} {moreOpen ? "▲" : "▼"}
+              Setup{isSetupPhase && <span aria-label="still to do" style={{ color: GO }}> •</span>} {moreOpen ? "▲" : "▼"}
             </NavBtn>
           </div>
 
           {moreOpen && (
-            <div style={{ display: "flex", gap: "4px", paddingBottom: "8px" }}>
-              {MORE.map((id) => {
-                const t = TABS.find((x) => x.id === id);
-                return <NavBtn key={id} active={screen === id} onClick={() => { setScreen(id); setMoreOpen(false); }}>{t.label}</NavBtn>;
-              })}
+            <div style={{ display: "grid", gap: "6px", paddingBottom: "8px" }}>
+              {[["Get ready", GET_READY], ["Extras", EXTRAS]].map(([heading, ids]) => (
+                <div key={heading} style={{ display: "flex", alignItems: "center", gap: "4px", flexWrap: "wrap" }}>
+                  <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: M, width: "72px" }}>{heading}</span>
+                  {ids.map((id) => {
+                    const t = TABS.find((x) => x.id === id);
+                    return <NavBtn key={id} active={screen === id} onClick={() => { setScreen(id); setMoreOpen(false); }}>{t.label}</NavBtn>;
+                  })}
+                </div>
+              ))}
             </div>
           )}
         </div>

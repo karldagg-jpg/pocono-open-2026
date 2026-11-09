@@ -120,13 +120,28 @@ export default function LiveScreen({ event, library, meId: meIdProp, weekendLabe
         </div>
       </div>
 
+      {/* ── Who's looking ──
+          The board highlights your own row, but the picker used to sit under
+          all twelve players where nobody found it. Asked once, up top; after
+          that it lives quietly in the footer. */}
+      {meId == null && (event.players || []).length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", background: "rgba(31,122,72,.22)", borderBottom: `1px solid ${LINE}` }}>
+          <label htmlFor="po-me" style={{ fontSize: "14px", fontWeight: 700, color: INK, flex: 1 }}>Which one are you?</label>
+          <select id="po-me" value="" onChange={(e) => pickMe(e.target.value)}
+            style={{ background: "#fff", color: "#1a1f1a", border: "none", borderRadius: "8px", padding: "7px 10px", fontSize: "14px", fontWeight: 600 }}>
+            <option value="">Pick your name</option>
+            {(event.players || []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </div>
+      )}
+
       {/* ── Moments ──
           The order is on the table below. This is what people are talking
           about. It scrolls only when there's something to scroll. */}
       {ticker.length > 0 && (
         <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 14px", background: "rgba(31,122,72,.14)", borderBottom: `1px solid ${LINE}`, overflow: "hidden" }}>
-          <span style={{ fontSize: "9.5px", fontWeight: 800, letterSpacing: ".12em", color: UNDER, flexShrink: 0 }}>MOMENTS</span>
-          <div style={{ display: "flex", gap: "18px", overflowX: "auto", scrollbarWidth: "none", fontSize: "12px", whiteSpace: "nowrap" }}>
+          <span style={{ fontSize: "10px", fontWeight: 800, letterSpacing: ".1em", color: UNDER, flexShrink: 0 }}>MOMENTS</span>
+          <div style={{ display: "flex", gap: "18px", overflowX: "auto", scrollbarWidth: "none", fontSize: "13px", whiteSpace: "nowrap" }}>
             {ticker.map((m, i) => (
               <span key={i} style={{ color: m.kind === "birdie" ? MUTED : m.kind === "eagle" ? UNDER : GOLDL, fontWeight: m.kind === "birdie" ? 500 : 700 }}>
                 {m.kind === "hio" ? "🎯 " : m.kind === "eagle" ? "🦅 " : ""}{m.text}
@@ -141,7 +156,7 @@ export default function LiveScreen({ event, library, meId: meIdProp, weekendLabe
       {recap.anyStarted && view !== "weekend" && (
         <div style={{ display: "flex", gap: "6px", padding: "9px 14px 0" }}>
           {recap.lowNet && (
-            <Chip k={recap.lowNet.complete ? "Low round" : "Low · out there"}
+            <Chip k={recap.lowNet.complete ? "Low round" : "Low so far"}
               v={recap.lowNet.player.name.split(" ")[0]}
               s={fmtToPar(recap.lowNet.netToPar)} />
           )}
@@ -187,12 +202,13 @@ export default function LiveScreen({ event, library, meId: meIdProp, weekendLabe
         </div>
       )}
 
-      <div style={{ display: "flex", gap: "10px", padding: "12px 14px 6px", fontSize: "9.5px", fontWeight: 700, letterSpacing: ".11em", color: DIM, textTransform: "uppercase" }}>
+      <div style={{ display: "flex", gap: "10px", padding: "12px 14px 6px", fontSize: "10.5px", fontWeight: 700, letterSpacing: ".09em", color: DIM, textTransform: "uppercase" }}>
         <span style={{ width: "26px" }} />
         <span style={{ flex: 1 }}>Player</span>
         <span style={{ width: "46px", textAlign: "center" }}>Thru</span>
         <span style={{ width: "50px", textAlign: "right" }}>{view === "gross" ? "Gross" : "Net"}</span>
-        <span style={{ width: "16px" }} />
+        {/* Movement since the last update: ▲ up the board, ▼ down. */}
+        <span style={{ width: "16px", textAlign: "center", letterSpacing: 0 }} title="Movement" aria-label="Movement">±</span>
       </div>
 
       {rows.map((r, i) => {
@@ -211,11 +227,10 @@ export default function LiveScreen({ event, library, meId: meIdProp, weekendLabe
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: "16px", fontWeight: 600 }}>{r.player.name}</div>
-              <div style={{ fontSize: "10.5px", fontWeight: 500, color: DIM, marginTop: "3px" }}>
-                {r.player.hcpIndex} idx
+              <div style={{ fontSize: "12px", fontWeight: 500, color: DIM, marginTop: "3px" }}>
                 {view === "weekend"
-                  ? ` · ${r.roundsStarted} of ${weekend.roundIds.length} rounds`
-                  : r.started ? ` · plays off ${r.courseHcp}` : " · not started"}
+                  ? `${r.roundsStarted} of ${weekend.roundIds.length} rounds`
+                  : r.started ? `Plays off ${r.courseHcp}` : "Not started"}
               </div>
             </div>
             <div style={{ width: "46px", textAlign: "center", fontSize: "12px", fontWeight: 600, color: MUTED, fontVariantNumeric: "tabular-nums" }}>
@@ -224,24 +239,26 @@ export default function LiveScreen({ event, library, meId: meIdProp, weekendLabe
             <div style={{ width: "50px", textAlign: "right", fontSize: "19px", fontWeight: 800, fontVariantNumeric: "tabular-nums", color: r.started ? scoreColor(scoreOf(r)) : DIM }}>
               {r.started ? fmtToPar(scoreOf(r)) : "–"}
             </div>
-            <div style={{ width: "16px", textAlign: "center", fontSize: "11px", fontWeight: 700, color: d > 0 ? UNDER : d < 0 ? OVER : "#4a6b57" }}>
+            <div style={{ width: "16px", textAlign: "center", fontSize: "11px", fontWeight: 700, color: d > 0 ? UNDER : d < 0 ? OVER : "#4a6b57" }}
+              aria-label={d > 0 ? `Up ${d}` : d < 0 ? `Down ${-d}` : "No change"}>
               {d > 0 ? "▲" : d < 0 ? "▼" : "–"}
             </div>
           </div>
         );
       })}
 
-      <div style={{ padding: "10px 14px", background: BAR, fontSize: "11px", lineHeight: 1.5, color: DIM, borderTop: "1px solid rgba(255,255,255,.08)" }}>
+      <div style={{ padding: "10px 14px", background: BAR, fontSize: "12px", lineHeight: 1.5, color: DIM, borderTop: "1px solid rgba(255,255,255,.08)" }}>
         {view === "gross"
           ? "Gross to par over holes played."
           : "Net to par — handicap strokes counted on the holes actually played."}
         {view !== "weekend" && round && ` · ${round.playersStarted} of ${rows.length} started`}
+        {meId != null && (
         <div style={{ marginTop: "7px", display: "flex", alignItems: "center", gap: "7px" }}>
           <span>You</span>
           <select value={meId ?? ""} onChange={(e) => pickMe(e.target.value)}
             style={{
               background: "rgba(255,255,255,.07)", color: MUTED, border: `1px solid ${LINE}`,
-              borderRadius: "6px", padding: "3px 6px", fontSize: "11px", outline: "none",
+              borderRadius: "6px", padding: "4px 7px", fontSize: "12px", outline: "none",
             }}>
             <option value="">nobody</option>
             {(event.players || []).map((p) => (
@@ -249,6 +266,7 @@ export default function LiveScreen({ event, library, meId: meIdProp, weekendLabe
             ))}
           </select>
         </div>
+        )}
       </div>
 
       <style>{`@keyframes poPulse{70%{box-shadow:0 0 0 7px rgba(255,91,82,0)}100%{box-shadow:0 0 0 0 rgba(255,91,82,0)}}`}</style>
@@ -264,10 +282,10 @@ function Chip({ k, v, s, hot }) {
       background: hot ? "rgba(31,122,72,.28)" : "rgba(255,255,255,.055)",
       border: `1px solid ${hot ? "rgba(95,212,147,.35)" : "transparent"}`,
     }}>
-      <div style={{ fontSize: "9px", fontWeight: 700, letterSpacing: ".07em", textTransform: "uppercase", color: DIM, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{k}</div>
+      <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: DIM, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{k}</div>
       <div style={{ display: "flex", alignItems: "baseline", gap: "5px", marginTop: "2px" }}>
-        <span style={{ fontSize: "13px", fontWeight: 700, color: INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v}</span>
-        <span style={{ fontSize: "11px", fontWeight: 700, color: UNDER, marginLeft: "auto", fontVariantNumeric: "tabular-nums" }}>{s}</span>
+        <span style={{ fontSize: "14px", fontWeight: 700, color: INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v}</span>
+        <span style={{ fontSize: "12px", fontWeight: 700, color: UNDER, marginLeft: "auto", fontVariantNumeric: "tabular-nums" }}>{s}</span>
       </div>
     </div>
   );

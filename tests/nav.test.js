@@ -12,18 +12,16 @@ const APP = fs.readFileSync(path.join(process.cwd(), "src/App.jsx"), "utf8");
 
 const tabIds = [...APP.matchAll(/\{\s*id:\s*"(\w+)",\s*label:/g)].map((m) => m[1]);
 
-/** The two arrays of a `const NAME = isSetupPhase ? [...] : [...]` pair. */
-function navLists(name) {
-  const re = new RegExp(`const ${name} = isSetupPhase\\s*\\?\\s*\\[([^\\]]*)\\]\\s*:\\s*\\[([^\\]]*)\\]`);
-  const m = re.exec(APP);
+function list(name) {
+  const m = new RegExp(`const ${name} = \\[([^\\]]*)\\]`).exec(APP);
   if (!m) throw new Error(`could not find ${name} in App.jsx`);
-  const ids = (s) => [...s.matchAll(/"(\w+)"/g)].map((x) => x[1]);
-  return { setup: ids(m[1]), playing: ids(m[2]) };
+  return [...m[1].matchAll(/"(\w+)"/g)].map((x) => x[1]);
 }
 
-const PRIMARY = navLists("PRIMARY");
-const MORE = navLists("MORE");
-const reachable = (phase) => new Set([...PRIMARY[phase], ...MORE[phase]]);
+const PLAY = list("PLAY");
+const GET_READY = list("GET_READY");
+const EXTRAS = list("EXTRAS");
+const ALL = [...PLAY, ...GET_READY, ...EXTRAS];
 
 describe("every screen can actually be opened", () => {
   it("finds the tabs and the nav lists at all", () => {
@@ -32,36 +30,16 @@ describe("every screen can actually be opened", () => {
     expect(tabIds).toContain("casual");
   });
 
-  it("reaches every tab while a round is being played", () => {
-    const can = reachable("playing");
-    const missing = tabIds.filter((id) => !can.has(id));
-    expect(missing).toEqual([]);
+  it("reaches every tab", () => {
+    expect(tabIds.filter((id) => !ALL.includes(id))).toEqual([]);
   });
 
-  it("reaches every tab during setup", () => {
-    const can = reachable("setup");
-    const missing = tabIds.filter((id) => !can.has(id));
-    expect(missing).toEqual([]);
-  });
-
-  it("puts Live first once play has started — it's the reason to open the app", () => {
-    expect(PRIMARY.playing[0]).toBe("live");
-  });
-
-  it("never lists the same screen twice in one phase", () => {
-    for (const phase of ["setup", "playing"]) {
-      const all = [...PRIMARY[phase], ...MORE[phase]];
-      expect(all).toHaveLength(new Set(all).size);
-    }
+  it("never lists the same screen twice", () => {
+    expect(ALL).toHaveLength(new Set(ALL).size);
   });
 
   it("navigates only to screens that exist", () => {
-    const known = new Set(tabIds);
-    for (const phase of ["setup", "playing"]) {
-      for (const id of [...PRIMARY[phase], ...MORE[phase]]) {
-        expect(known, `nav lists "${id}" but no such tab`).toContain(id);
-      }
-    }
+    for (const id of ALL) expect(tabIds, `nav lists "${id}" but no such tab`).toContain(id);
   });
 
   it("routes every tab to a component", () => {
@@ -69,5 +47,22 @@ describe("every screen can actually be opened", () => {
     for (const id of tabIds) {
       expect(APP, `no route for "${id}"`).toMatch(new RegExp(`screen === "${id}"`));
     }
+  });
+});
+
+describe("the play tabs stay put", () => {
+  it("puts Live first — it's the reason to open the app", () => {
+    expect(PLAY[0]).toBe("live");
+  });
+
+  it("doesn't reorder them between setup and play", () => {
+    // They used to swap with the setup screens, so Live moved between Thursday
+    // and Saturday. The lists are now plain constants, not phase-dependent.
+    expect(APP).not.toMatch(/PLAY\s*=\s*isSetupPhase/);
+    expect(APP).toMatch(/\{PLAY\.map\(/);
+  });
+
+  it("keeps the getting-ready screens together under Setup", () => {
+    expect(GET_READY).toEqual(["setup", "courses", "games", "pairings"]);
   });
 });
