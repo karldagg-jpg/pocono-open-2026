@@ -4,6 +4,7 @@ import { settleWeekend, settlementTransfers } from "../lib/settlement";
 import { roundIds, roundCount } from "../lib/rounds";
 import { coursesFor } from "../lib/courses";
 import SettleUp from "./SettleUp";
+import ShareRecap from "./ShareRecap";
 import { paymentPlan } from "../lib/venmo";
 import { weekendSignOff } from "../lib/signOff";
 import { applyFields } from "../lib/fieldPatch";
@@ -86,6 +87,8 @@ export default function WinningsScreen({ event, library, archived = false, saveE
       <div style={{ color: M, fontSize: "14px", marginBottom: "18px" }}>
         ${weekendBuyIn ?? buyIn}/player · {players.length} players
       </div>
+
+      <ShareRecap event={event} library={library} label={weekendLabel || event.name} />
 
       {/* Pot summary */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "20px" }}>

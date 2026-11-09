@@ -109,3 +109,15 @@ describe("new weekends ask for signatures", () => {
     expect(cloneWeekend(archive.event, { label: "Pinehurst" }).requireSignOff).toBe(true);
   });
 });
+
+describe("sharing the recap", () => {
+  it("offers it once the weekend is finished", () => {
+    expect(winnings(archive.event, { archived: true })).toMatch(/Share the recap/);
+  });
+
+  it("doesn't offer it mid-weekend", () => {
+    const e = JSON.parse(JSON.stringify(archive.event));
+    for (const s of Object.values(e.rounds[3].scores)) s[17] = 0;
+    expect(winnings(e)).not.toMatch(/Share the recap/);
+  });
+});
