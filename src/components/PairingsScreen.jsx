@@ -4,6 +4,7 @@ import { autoPairRound3 } from "../lib/golfLogic";
 import { groupList, toPairingsObject, addToGroup, removeFromGroups, unassignedPlayers, groupsNeeded, autoPair, DEFAULT_GROUP_SIZE } from "../lib/pairings";
 import { roundIds, roundCount, isFinalRound } from "../lib/rounds";
 import { fmtIndex } from "../lib/format";
+import { applyFields } from "../lib/fieldPatch";
 
 export default function PairingsScreen({ event, saveEvent }) {
   const players = event.players || [];
@@ -17,9 +18,10 @@ export default function PairingsScreen({ event, saveEvent }) {
   const groups = Array.from({ length: needed }, (_, i) => saved[i] || []);
   const unassigned = unassignedPlayers(players, pairings, activeRound);
 
+  // Only this round's groups are written — not every round's.
   function persist(next) {
-    const newPairings = { ...pairings, [activeRound]: toPairingsObject(next) };
-    saveEvent({ ...event, pairings: newPairings }, { pairings: newPairings });
+    const f = { [`pairings.${activeRound}`]: toPairingsObject(next) };
+    saveEvent(applyFields(event, f), f);
   }
 
   function assignToGroup(pid, groupIdx) {
@@ -27,12 +29,12 @@ export default function PairingsScreen({ event, saveEvent }) {
   }
 
   function autoFill() {
-    // Round 3 keeps its leaderboard-based pairing; other rounds spread handicaps.
-    const auto = String(activeRound) === "3"
+    // The final round pairs by the leaderboard; other rounds spread handicaps.
+    const auto = isFinalRound(event, activeRound)
       ? autoPairRound3(event)
       : toPairingsObject(autoPair(players, { order: "snake" }));
-    const newPairings = { ...pairings, [activeRound]: auto };
-    saveEvent({ ...event, pairings: newPairings }, { pairings: newPairings });
+    const f = { [`pairings.${activeRound}`]: auto };
+    saveEvent(applyFields(event, f), f);
   }
 
   function playerName(id) {

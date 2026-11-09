@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { G, GO, GOLD, M, R, CREAM, CARD, CARD2, FB, FD } from "../constants/theme";
 import { playerCourseHcp } from "../lib/golfLogic";
 import { coursesFor } from "../lib/courses";
+import { applyFields, fieldsUnder } from "../lib/fieldPatch";
 
 // ── Scoring helpers ────────────────────────────────────────────────────────────
 // Standard Stableford: net double bogey+ = 0, bogey 1, par 2, birdie 3, eagle 4…
@@ -73,7 +74,9 @@ export default function SixiesScreen({ event, saveEvent, library, players: playe
   const persist = (partial) => {
     const next = { courseId, game, playerIds, scores, takes, stakes, junk, ...partial };
     if (saveSixies) { saveSixies(next); return; }
-    saveEvent({ ...event, sixies: next }, { sixies: next });
+    // Only the parts that changed — two phones in the same game can't undo each other.
+    const f = fieldsUnder("sixies", { ...partial, ...(event.sixies ? {} : next) });
+    saveEvent(applyFields(event, f), f);
   };
   const setJunk = (partial) => persist({ junk: { ...junk, ...partial } });
 

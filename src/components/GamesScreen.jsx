@@ -3,6 +3,7 @@ import { CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
 
 import { roundIds, splitAcrossRounds, perRound } from "../lib/rounds";
 import { coursesFor } from "../lib/courses";
+import { applyFields, gamesSettingsFields } from "../lib/fieldPatch";
 
 const GAME_KEYS = ["scatts", "lowNet", "ctp", "hio"];
 const GAME_LABELS = { scatts: "Scats / Skins", lowNet: "Low Net Tournament", ctp: "Closest to Pin", hio: "Hole in One Bonus" };
@@ -95,12 +96,15 @@ export default function GamesScreen({ event, saveEvent, library }) {
     updateGame("ctp", "holes", holes);
   }
 
+  // Winners picked here are remembered as edits, so saving writes just those
+  // holes and never the results other phones recorded on the course.
+  const [ctpEdits, setCtpEdits] = useState({});
   function setCTPWinner(roundNum, holeIdx, pid) {
+    const winner = pid === "" ? null : Number(pid);
     const results = { ...(games.ctp.results || {}) };
-    const rr = { ...(results[roundNum] || {}) };
-    if (pid === "") delete rr[holeIdx]; else rr[holeIdx] = Number(pid);
-    results[roundNum] = rr;
+    results[roundNum] = { ...(results[roundNum] || {}), [holeIdx]: winner };
     updateGame("ctp", "results", results);
+    setCtpEdits((e) => ({ ...e, [`${roundNum}.${holeIdx}`]: winner }));
   }
 
   function toggleBirdieOptOut(pid) {
@@ -113,11 +117,11 @@ export default function GamesScreen({ event, saveEvent, library }) {
 
   function save() {
     const birdiePool = birdiePoolEnabled
-      ? { enabled: true, 1: birdiePoolRounds[1], 2: birdiePoolRounds[2], 3: birdiePoolRounds[3] }
+      ? { enabled: true, ...Object.fromEntries(ids.map((r) => [r, birdiePoolRounds[r] !== false])) }
       : false;
-    const newGames = { ...games, useIndexHcp, birdiePool };
-    const patch = { weekendBuyIn, games: newGames, optOuts: [...optOuts], birdieOptOuts: [...birdieOptOuts] };
-    saveEvent({ ...event, ...patch }, patch);
+    const f = gamesSettingsFields({ games, useIndexHcp, birdiePool, weekendBuyIn, optOuts, birdieOptOuts }, ctpEdits);
+    saveEvent(applyFields(event, f), f);
+    setCtpEdits({});
   }
 
   const pcts = games.lowNet.payoutPcts || [50, 30, 20];

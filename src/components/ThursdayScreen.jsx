@@ -2,6 +2,7 @@ import { useState } from "react";
 import { CARD, CARD2, CREAM, G, GO, GOLD, M, R, FD, FB } from "../constants/theme";
 import { strokesOnHole } from "../lib/golfLogic";
 import { fmtIndex } from "../lib/format";
+import { applyFields, fieldsUnder } from "../lib/fieldPatch";
 
 // Sixies: pick 6 of 9 holes, 3 passes max, lowest net wins
 // Returns true=forcedTake, false=forcedPass, null=freeChoice
@@ -41,8 +42,8 @@ export default function ThursdayScreen({ event, saveEvent }) {
   function hcp9(p) { return Math.round((Number(p.hcpIndex) || 0) / 2); }
 
   function saveThu(patch) {
-    const newThu = { ...thu, ...patch };
-    saveEvent({ ...event, thursday: newThu }, { thursday: newThu });
+    const f = fieldsUnder("thursday", patch);
+    saveEvent(applyFields(event, f), f);
   }
 
   function togglePlayer(id) {

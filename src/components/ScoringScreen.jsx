@@ -10,6 +10,7 @@ import { fmtIndex } from "../lib/format";
 import { coursesFor, freezeFields, withFrozenCourse } from "../lib/courses";
 import { pendingWrites } from "../lib/pendingWrites";
 import { firstOpenHole, autoAdvanceAction, holeComplete, holesDone } from "../lib/scoringFlow";
+import { applyFields, ctpResultFields, ctpClearFields } from "../lib/fieldPatch";
 
 const LOST_BALL_SECS = 180;
 
@@ -341,38 +342,17 @@ export default function ScoringScreen({ event, saveEvent, library }) {
     const ctp = games?.ctp || {};
     const player = players.find(p => p.id === winnerId);
     const logEntry = { name: player?.name || "?", distance, ts: Date.now() };
-    const newCtp = {
-      ...ctp,
-      results: {
-        ...(ctp.results || {}),
-        [activeRound]: { ...(ctp.results?.[activeRound] || {}), [activeHole]: winnerId },
-      },
-      distances: {
-        ...(ctp.distances || {}),
-        [activeRound]: { ...(ctp.distances?.[activeRound] || {}), [activeHole]: distance },
-      },
-      log: {
-        ...(ctp.log || {}),
-        [activeRound]: {
-          ...(ctp.log?.[activeRound] || {}),
-          [activeHole]: [...(ctp.log?.[activeRound]?.[activeHole] || []), logEntry],
-        },
-      },
-    };
-    const newGames = { ...games, ctp: newCtp };
-    saveEvent({ ...event, games: newGames }, { games: newGames });
+    // This hole only. Every group records its own par 3s at the same time,
+    // and writing the whole games block let one wipe out another's.
+    const f = ctpResultFields(activeRound, activeHole, {
+      winnerId, distance, log: [...(ctp.log?.[activeRound]?.[activeHole] || []), logEntry],
+    });
+    saveEvent(applyFields(event, f), f);
   }
 
   function clearCTP() {
-    const ctp = games?.ctp || {};
-    const results = { ...(ctp.results || {}), [activeRound]: { ...(ctp.results?.[activeRound] || {}) } };
-    const distances = { ...(ctp.distances || {}), [activeRound]: { ...(ctp.distances?.[activeRound] || {}) } };
-    const log = { ...(ctp.log || {}), [activeRound]: { ...(ctp.log?.[activeRound] || {}) } };
-    delete results[activeRound][activeHole];
-    delete distances[activeRound][activeHole];
-    delete log[activeRound][activeHole];
-    const newGames = { ...games, ctp: { ...ctp, results, distances, log } };
-    saveEvent({ ...event, games: newGames }, { games: newGames });
+    const f = ctpClearFields(activeRound, activeHole);
+    saveEvent(applyFields(event, f), f);
     setCtpFt(""); setCtpIn(""); setShowCtpLog(false);
   }
 
