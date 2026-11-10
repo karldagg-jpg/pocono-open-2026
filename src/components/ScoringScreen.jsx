@@ -12,6 +12,7 @@ import { pendingWrites } from "../lib/pendingWrites";
 import { firstOpenHole, autoAdvanceAction, holeComplete, holesDone } from "../lib/scoringFlow";
 import { applyFields, ctpResultFields, ctpClearFields } from "../lib/fieldPatch";
 import { signOffStatus, groupKey, signFields, unsignFields, roundGroups } from "../lib/signOff";
+import SyncMarker from "./SyncMarker";
 
 const LOST_BALL_SECS = 180;
 
@@ -190,7 +191,7 @@ function LostBallTimer() {
   );
 }
 
-export default function ScoringScreen({ event, saveEvent, library, canLock = true }) {
+export default function ScoringScreen({ event, saveEvent, library, canLock = true, onCourse: onCourseProp, setOnCourse: setOnCourseProp }) {
   const { players = [], courses: eventCourses = {}, rounds = {}, pairings = {}, games = {} } = event;
   const courses = coursesFor(event, library);
   // Which round and group this phone keeps the card for. Remembered, because
@@ -212,14 +213,17 @@ export default function ScoringScreen({ event, saveEvent, library, canLock = tru
   // On-course mode: the full scorecard is for the clubhouse. Walking down the
   // fairway you want this hole and nothing else. Remembered per phone, because
   // whoever keeps the card wants it on every time they pick the phone up.
-  const [onCourse, setOnCourse] = useState(() => {
+  // The app owns it when it can, because on course the app hides its own
+  // header and tabs — the whole screen is the hole you're on.
+  const [onCourseLocal, setOnCourseLocal] = useState(() => {
     try { return localStorage.getItem("pocono:onCourse") === "1"; } catch { return false; }
   });
+  const onCourse = onCourseProp ?? onCourseLocal;
   function toggleOnCourse() {
-    setOnCourse((v) => {
-      try { localStorage.setItem("pocono:onCourse", v ? "0" : "1"); } catch {}
-      return !v;
-    });
+    const next = !onCourse;
+    if (setOnCourseProp) { setOnCourseProp(next); return; }
+    try { localStorage.setItem("pocono:onCourse", next ? "1" : "0"); } catch {}
+    setOnCourseLocal(next);
   }
 
   const round = rounds[activeRound] || {};
@@ -456,15 +460,16 @@ export default function ScoringScreen({ event, saveEvent, library, canLock = tru
           Scoring
         </div>
         )}
+        {onCourse && <span style={{ marginLeft: "auto" }}><SyncMarker /></span>}
         <button onClick={toggleOnCourse}
           style={{
-            marginLeft: "auto", padding: "6px 12px", borderRadius: "999px", cursor: "pointer",
-            fontFamily: FB, fontSize: "12px", fontWeight: 600, touchAction: "manipulation",
-            border: `1px solid ${onCourse ? G : "#c8d0c8"}`,
-            background: onCourse ? G : "transparent",
-            color: onCourse ? "#fff" : M,
+            marginLeft: onCourse ? 0 : "auto", padding: onCourse ? "8px 14px" : "6px 12px", borderRadius: "999px", cursor: "pointer",
+            fontFamily: FB, fontSize: onCourse ? "14px" : "12px", fontWeight: 700, touchAction: "manipulation",
+            border: `1px solid ${onCourse ? "#c8d0c8" : "#c8d0c8"}`,
+            background: onCourse ? CARD : "transparent",
+            color: onCourse ? CREAM : M,
           }}>
-          {onCourse ? "● On course" : "On course"}
+          {onCourse ? "Exit" : "On course"}
         </button>
       </div>
 

@@ -75,6 +75,18 @@ const READ_ONLY_SCREENS = ["live", "leaderboard", "scatts", "winnings", "casual"
 
 export default function App() {
   const [screen, setScreen] = useState("leaderboard");
+  // On course, Scoring takes the whole screen — no header, no tabs — the way
+  // PVGC's play mode does. Remembered per phone.
+  const [onCourse, setOnCourseState] = useState(() => {
+    try { return localStorage.getItem("pocono:onCourse") === "1"; } catch { return false; }
+  });
+  const setOnCourse = (v) => {
+    try { localStorage.setItem("pocono:onCourse", v ? "1" : "0"); } catch { /* ignore */ }
+    setOnCourseState(v);
+  };
+  // Where "‹ Menu" on the Live board goes back to.
+  const lastScreen = useRef("leaderboard");
+  useEffect(() => { if (screen !== "live") lastScreen.current = screen; }, [screen]);
   const [event, setEvent] = useState(DEFAULT_EVENT);
   const [online, setOnline] = useState(navigator.onLine);
   const [newWeekendOpen, setNewWeekendOpen] = useState(false);
@@ -227,6 +239,7 @@ export default function App() {
   const hasPlayers = (event.players || []).length > 0;
   const isSetupPhase = !hasPlayers || roundsWithoutCourse(event, coursesFor(event, library)).length > 0;
   const MORE = [...GET_READY, ...EXTRAS];
+  const fullScreen = !newWeekendOpen && (screen === "live" || (screen === "scoring" && onCourse));
   // Only once the weekend has loaded — before that every weekend looks empty,
   // and the menu used to pop open on every launch.
   useEffect(() => { if (loaded && isSetupPhase) setMoreOpen(true); }, [weekendId, loaded, isSetupPhase]);
@@ -251,7 +264,8 @@ export default function App() {
 
   return (
     <div style={{ minHeight: "100dvh", background: BG, color: CREAM, fontFamily: FB }}>
-      {/* Header */}
+      {/* Header — hidden on the Live board and on course, which fill the screen */}
+      {!fullScreen && (
       <div style={{
         position: "sticky", top: 0, zIndex: 100,
         background: "rgba(242,244,240,0.97)", backdropFilter: "blur(8px)",
@@ -329,6 +343,8 @@ export default function App() {
         </div>
       </div>
 
+      )}
+
       <UpdateBanner />
 
       {!online && (
@@ -385,9 +401,9 @@ export default function App() {
           {screen === "setup"       && <SetupScreen      event={event} saveEvent={saveEvent} setAdminPin={setAdminPin} authed={authed} library={library} />}
           {screen === "courses"     && <CourseScreen      event={event} saveEvent={saveEvent} library={library} weekendIndex={weekendIndex} weekendId={weekendId} />}
           {screen === "pairings"    && <PairingsScreen    event={event} saveEvent={saveEvent} />}
-          {screen === "scoring"     && <ScoringScreen     event={event} saveEvent={saveEvent} library={library} canLock={!gated || organizer} />}
+          {screen === "scoring"     && <ScoringScreen     event={event} saveEvent={saveEvent} library={library} canLock={!gated || organizer} onCourse={onCourse} setOnCourse={setOnCourse} />}
           {screen === "scatts"      && <ScattsScreen      event={event} library={library} />}
-          {screen === "live"        && <LiveScreen        event={event} library={library} weekendLabel={(weekendIndex[weekendId] || {}).label} />}
+          {screen === "live"        && <LiveScreen        event={event} library={library} weekendLabel={(weekendIndex[weekendId] || {}).label} onExit={() => setScreen(lastScreen.current)} />}
           {screen === "leaderboard" && <LeaderboardScreen event={event} library={library} />}
           {screen === "winnings"    && <WinningsScreen    event={event} library={library} archived={curArchived} saveEvent={saveEvent} weekendLabel={(weekendIndex[weekendId] || {}).label} canAct={!gated || organizer} />}
           {screen === "games"       && <GamesScreen       event={event} saveEvent={saveEvent} library={library} />}

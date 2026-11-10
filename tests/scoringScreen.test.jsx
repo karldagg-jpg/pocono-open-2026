@@ -72,3 +72,29 @@ describe("players the pairings left out", () => {
     expect(render()).toMatch(new RegExp(`Group ${all}`));
   });
 });
+
+describe("on course fills the screen", () => {
+  it("offers Exit, and shows what's waiting to send where the header used to", () => {
+    const html = renderToStaticMarkup(<ScoringScreen event={archive.event} library={archive.library} saveEvent={() => {}} onCourse setOnCourse={() => {}} />);
+    expect(html).toMatch(/>Exit</);
+    expect(html).not.toMatch(/>On course</);
+  });
+
+  it("follows the app's on-course setting when it's given one", () => {
+    store["pocono:onCourse"] = "1";
+    const html = renderToStaticMarkup(<ScoringScreen event={archive.event} library={archive.library} saveEvent={() => {}} onCourse={false} setOnCourse={() => {}} />);
+    expect(html).toMatch(/>On course</);
+  });
+});
+
+describe("the app hides its header on the Live board and on course", () => {
+  const APP = fs.readFileSync(path.join(process.cwd(), "src/App.jsx"), "utf8");
+  it("decides it in one place", () => {
+    expect(APP).toMatch(/const fullScreen = !newWeekendOpen && \(screen === "live" \|\| \(screen === "scoring" && onCourse\)\);/);
+    expect(APP).toMatch(/\{!fullScreen && \(/);
+  });
+
+  it("gives Live a way back", () => {
+    expect(APP).toMatch(/<LiveScreen[^>]*onExit=/);
+  });
+});

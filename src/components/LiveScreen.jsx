@@ -24,7 +24,7 @@ const BAND = "rgba(31,122,72,.10)";
 const fmtToPar = (n) => (n === 0 ? "E" : n > 0 ? `+${n}` : `${n}`);
 const scoreColor = (n) => (n < 0 ? UNDER : n === 0 ? INK : OVER);
 
-export default function LiveScreen({ event, library, meId: meIdProp, weekendLabel }) {
+export default function LiveScreen({ event, library, meId: meIdProp, weekendLabel, onExit = null }) {
   // The app has no sign-in, so the board asks once who's looking and remembers
   // it. Without this the "your row" highlight could never fire.
   const [pickedMe, setPickedMe] = useState(() => {
@@ -88,10 +88,10 @@ export default function LiveScreen({ event, library, meId: meIdProp, weekendLabe
   }, [rows]);
 
   if (!roundIds.length) {
-    return <Empty>No rounds set up yet. Add one on the Courses tab.</Empty>;
+    return <Empty onExit={onExit}>No rounds set up yet. Add one on the Courses tab.</Empty>;
   }
   if (view !== "weekend" && !round) {
-    return <Empty>Round {roundId} has no course assigned yet.</Empty>;
+    return <Empty onExit={onExit}>Round {roundId} has no course assigned yet.</Empty>;
   }
 
   const anyLive = round?.anyInProgress;
@@ -104,6 +104,13 @@ export default function LiveScreen({ event, library, meId: meIdProp, weekendLabe
     <div style={{ background: BOARD, color: INK, borderRadius: "14px", overflow: "hidden", maxWidth: "760px", margin: "0 auto" }}>
 
       <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px 14px", background: BAR, borderBottom: "1px solid rgba(255,255,255,.08)" }}>
+        {/* The board fills the screen, as in PVGC; this is the way back. */}
+        {onExit && (
+          <button onClick={onExit}
+            style={{ background: "rgba(255,255,255,.12)", border: "none", color: INK, borderRadius: "8px", padding: "6px 10px", fontSize: "13px", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+            ‹ Menu
+          </button>
+        )}
         <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", fontWeight: 800, letterSpacing: ".12em" }}>
           <span style={{
             width: "8px", height: "8px", borderRadius: "50%",
@@ -291,10 +298,17 @@ function Chip({ k, v, s, hot }) {
   );
 }
 
-function Empty({ children }) {
+// The board fills the screen, so even an empty one needs the way back.
+function Empty({ children, onExit = null }) {
   return (
     <div style={{ background: BOARD, color: MUTED, borderRadius: "14px", padding: "40px 20px", textAlign: "center", fontSize: "14px", maxWidth: "760px", margin: "0 auto" }}>
-      {children}
+      <div>{children}</div>
+      {onExit && (
+        <button onClick={onExit}
+          style={{ marginTop: "16px", background: "rgba(255,255,255,.12)", border: "none", color: INK, borderRadius: "8px", padding: "8px 14px", fontSize: "14px", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+          ‹ Menu
+        </button>
+      )}
     </div>
   );
 }

@@ -43,3 +43,21 @@ describe("Live board", () => {
     expect(renderToStaticMarkup(<LiveScreen event={archive.event} library={archive.library} />)).toMatch(/aria-label="Movement"/);
   });
 });
+
+describe("full screen, with a way back", () => {
+  const exit = () => {};
+  it("has a Menu button on the board", () => {
+    expect(renderToStaticMarkup(<LiveScreen event={archive.event} library={archive.library} onExit={exit} />)).toMatch(/‹ Menu/);
+  });
+
+  it("has it on an empty board too — a new weekend can't strand anyone", () => {
+    const html = renderToStaticMarkup(<LiveScreen event={{ players: [], rounds: {} }} library={{}} onExit={exit} />);
+    expect(html).toMatch(/No rounds set up yet/);
+    expect(html).toMatch(/‹ Menu/);
+  });
+
+  it("and on a round with no course yet", () => {
+    const e = { players: archive.event.players, rounds: { 1: { courseId: null, scores: {} } } };
+    expect(renderToStaticMarkup(<LiveScreen event={e} library={{}} onExit={exit} />)).toMatch(/‹ Menu/);
+  });
+});
