@@ -7,7 +7,7 @@ import SettleUp from "./SettleUp";
 import BankSettle from "./BankSettle";
 import { bankerPlan } from "../lib/banker";
 import ShareRecap from "./ShareRecap";
-import { paymentPlan } from "../lib/venmo";
+import { paymentPlan } from "../lib/payments";
 import { weekendSignOff } from "../lib/signOff";
 import { applyFields } from "../lib/fieldPatch";
 
@@ -21,9 +21,9 @@ export default function WinningsScreen({ event, library, archived = false, saveE
   const settlement = settleWeekend(eventForCalc);
   const transfers = settlementTransfers(settlement.rows);
   const signOff = weekendSignOff(event);
-  const plan = paymentPlan(transfers, players, { note: weekendLabel || event.name || "Golf weekend", paid: event.paid || {} });
+  const plan = paymentPlan(transfers, { paid: event.paid || {} });
   // One field per payment, so two people ticking at once don't undo each other.
-  const bank = event.banker != null ? bankerPlan(settlement.rows, event.banker, { note: weekendLabel || event.name || "Golf weekend", paid: event.paid || {} }) : null;
+  const bank = event.banker != null ? bankerPlan(settlement.rows, event.banker, { paid: event.paid || {} }) : null;
   function togglePaid(p, on) {
     const f = { [`paid.${p.key}`]: on ? { at: Date.now() } : null };
     saveEvent(applyFields(event, f), f);
@@ -184,7 +184,7 @@ export default function WinningsScreen({ event, library, archived = false, saveE
         )}
 
         {bank?.banker ? (
-          <BankSettle plan={bank} signOff={signOff} archived={archived} canAct={canAct}
+          <BankSettle plan={bank} signOff={signOff} archived={archived}
             onToggle={saveEvent && canAct ? togglePaid : null} />
         ) : (
           <SettleUp plan={plan} signOff={signOff} archived={archived}

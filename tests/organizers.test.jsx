@@ -51,7 +51,6 @@ describe("isOrganizer", () => {
 // 2026 replayed with Karl holding the money and every card signed.
 function bankWeekend() {
   let e = JSON.parse(JSON.stringify(archive.event));
-  e.players = e.players.map((p) => (p.name === "Steve" ? { ...p, venmo: "Steve-Smith-12" } : p.name === "Russ" ? { ...p, venmo: "Russ-R-55" } : p));
   e.banker = e.players.find((p) => p.name === "Karl").id;
   e.requireSignOff = true;
   for (const r of Object.keys(e.rounds)) for (const g of signOffStatus(e, r)) e = applyFields(e, signFields(e, r, g.ids, g.ids[0], () => 1));
@@ -59,18 +58,17 @@ function bankWeekend() {
 }
 
 describe("settling up with the bank", () => {
-  it("shows the bank Pay and Request buttons", () => {
+  it("lets the bank tick lines off as they're settled", () => {
     const html = renderToStaticMarkup(<WinningsScreen event={bankWeekend()} library={LIB} saveEvent={noop} canAct />);
-    expect(html).toMatch(/Pay @Steve-Smith-12/);
-    expect(html).toMatch(/Request @Russ-R-55/);
-    expect(html).toMatch(/txn=charge/);
+    expect(html).toMatch(/aria-label="Paid Steve"/);
+    expect(html).toMatch(/aria-label="Collected from Russ"/);
+    expect(html).not.toMatch(/venmo/i);
   });
 
-  it("shows everyone else the amounts, with no buttons", () => {
+  it("shows everyone else the amounts, with nothing to tick", () => {
     const t = text(<WinningsScreen event={bankWeekend()} library={LIB} saveEvent={noop} canAct={false} />);
     expect(t).toMatch(/Karl pays Steve \$297/);
     expect(t).toMatch(/Russ pays Karl \$28/);
-    expect(t).not.toMatch(/Pay @|Request @/);
     expect(renderToStaticMarkup(<WinningsScreen event={bankWeekend()} library={LIB} saveEvent={noop} canAct={false} />)).not.toMatch(/type="checkbox"/);
   });
 

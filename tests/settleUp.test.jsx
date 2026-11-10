@@ -20,11 +20,10 @@ beforeEach(() => {
 });
 const text = (el) => renderToStaticMarkup(el).replace(/<[^>]+>/g, " ").replace(/&#x27;/g, "'").replace(/&amp;/g, "&").replace(/\s+/g, " ");
 
-// 2026 replayed as a live weekend that asks for signatures, with two usernames.
+// 2026 replayed as a live weekend that asks for signatures.
 function liveWeekend() {
   const e = JSON.parse(JSON.stringify(archive.event));
   e.requireSignOff = true;
-  e.players = e.players.map((p) => (p.name === "Steve" ? { ...p, venmo: "Steve-Smith-12" } : p.name === "Karl" ? { ...p, venmo: "Karl-Dagg" } : p));
   return e;
 }
 function signEverything(e) {
@@ -36,22 +35,18 @@ function signEverything(e) {
 const winnings = (e, extra = {}) => text(<WinningsScreen event={e} library={LIB} saveEvent={noop} weekendLabel="Pocono Open 2026" {...extra} />);
 
 describe("settling up", () => {
-  it("holds the Pay buttons and lists unsigned cards while any are unsigned", () => {
-    const t = winnings(liveWeekend());
-    expect(t).toMatch(/Provisional\. These amounts can still change — not every card is signed: Round 1 ·/);
-    expect(renderToStaticMarkup(<WinningsScreen event={liveWeekend()} library={LIB} saveEvent={noop} />)).not.toMatch(/venmo\.com/);
+  it("marks the amounts provisional and lists unsigned cards while any are unsigned", () => {
+    expect(winnings(liveWeekend())).toMatch(/Provisional\. These amounts can still change — not every card is signed: Round 1 ·/);
   });
 
-  it("offers Pay buttons to people with a username once every card is signed", () => {
-    const html = renderToStaticMarkup(<WinningsScreen event={signEverything(liveWeekend())} library={LIB} saveEvent={noop} weekendLabel="Pocono Open 2026" />);
-    expect(html).toMatch(/href="https:\/\/venmo\.com\/Steve-Smith-12\?txn=pay&amp;amount=\d+\.00&amp;note=Pocono\+Open\+2026"/);
-    expect(html).toMatch(/Pay @Steve-Smith-12/);
-    expect(html).toMatch(/rel="noopener noreferrer"/);
-    expect(text(<WinningsScreen event={signEverything(liveWeekend())} library={LIB} saveEvent={noop} />)).not.toMatch(/Provisional/);
+  it("drops the warning once every card is signed", () => {
+    expect(winnings(signEverything(liveWeekend()))).not.toMatch(/Provisional/);
   });
 
-  it("says who has no Venmo yet", () => {
-    expect(winnings(signEverything(liveWeekend()))).toMatch(/No Venmo/);
+  it("has no payment-app buttons or links", () => {
+    const html = renderToStaticMarkup(<WinningsScreen event={signEverything(liveWeekend())} library={LIB} saveEvent={noop} />);
+    expect(html).not.toMatch(/venmo/i);
+    expect(html).not.toMatch(/<a /);
   });
 
   it("counts payments ticked off", () => {
@@ -64,7 +59,6 @@ describe("settling up", () => {
   it("shows 2026 as it was: no sign-off, no Pay buttons, list folded", () => {
     const t = winnings(archive.event, { archived: true });
     expect(t).not.toMatch(/Provisional/);
-    expect(t).not.toMatch(/Pay @/);
     expect(t).toMatch(/Show who pays whom · 0 of \d+ paid/);
   });
 });
@@ -94,13 +88,11 @@ describe("signing the card on Scoring", () => {
   });
 });
 
-describe("Venmo on the Players tab", () => {
-  it("shows each player's username, or that they haven't one", () => {
-    const t = text(<SetupScreen event={liveWeekend()} library={LIB} saveEvent={noop} authed setAdminPin={noop} />);
-    expect(t).toMatch(/Steve Venmo @Steve-Smith-12/);
-    expect(t).toMatch(/Jake No Venmo yet/);
-    expect(renderToStaticMarkup(<SetupScreen event={liveWeekend()} library={LIB} saveEvent={noop} authed setAdminPin={noop} />))
-      .toMatch(/placeholder="Venmo username \(optional\)"/);
+describe("the Players tab", () => {
+  it("asks only for a name and an index — no payment usernames", () => {
+    const html = renderToStaticMarkup(<SetupScreen event={liveWeekend()} library={LIB} saveEvent={noop} authed setAdminPin={noop} />);
+    expect(html).not.toMatch(/venmo/i);
+    expect(html).toMatch(/placeholder="Player name"/);
   });
 });
 

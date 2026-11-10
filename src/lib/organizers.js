@@ -1,8 +1,8 @@
 // ── Who runs the weekend ─────────────────────────────────────────────────────
 // Organizers sign in by email and are the only ones who can change the setup —
-// players, Venmo usernames, pots, courses, pairings — or see the bank's Pay and
-// Request buttons. Golfers never sign in; anyone with the link can still score,
-// record closest to the pin and sign cards.
+// players, pots, courses, pairings — or tick off the settle-up. Golfers never
+// sign in; anyone with the link can still score, record closest to the pin and
+// sign cards.
 //
 // The database enforces the same list (firestore.rules, in the PVGC repo,
 // which holds the rules for the shared Firebase project). Keep them in step.
