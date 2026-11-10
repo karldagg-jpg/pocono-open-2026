@@ -11,6 +11,7 @@ import LiveScreen from "./components/LiveScreen";
 import { cloneWeekend, blankRounds } from "./lib/newWeekend";
 import SyncMarker from "./components/SyncMarker";
 import UpdateBanner from "./components/UpdateBanner";
+import { ArchivedNote } from "./components/ScoringScreen";
 import { pendingWrites } from "./lib/pendingWrites";
 import { coursesFor } from "./lib/courses";
 import { roundsWithoutCourse } from "./lib/weekendSetup";
@@ -59,6 +60,9 @@ const TABS = [
 const PLAY = ["live", "leaderboard", "scoring", "scatts", "winnings", "thursday"];
 const GET_READY = ["setup", "courses", "games", "pairings"];
 const EXTRAS = ["record", "replay", "sixies", "casual"];
+
+// What an archived weekend gets instead of a save.
+const IGNORE_SAVE = async () => {};
 
 const DEFAULT_EVENT = {
   name: "Pocono Open 2026",
@@ -261,6 +265,11 @@ export default function App() {
       .sort((a, b) => (a.archived - b.archived) || a.label.localeCompare(b.label));
   })();
   const curArchived = !!weekendIndex[weekendId]?.archived;
+  // An archived weekend is the record. Nothing on it saves — Pocono 2026
+  // was edited five days after it was archived, which lost Karl's rounds.
+  // Unarchive it from the header to change it.
+  const readOnly = curArchived;
+  const save = readOnly ? IGNORE_SAVE : saveEvent;
 
   return (
     <div style={{ minHeight: "100dvh", background: BG, color: CREAM, fontFamily: FB }}>
@@ -347,6 +356,12 @@ export default function App() {
 
       <UpdateBanner />
 
+      {readOnly && !fullScreen && screen !== "scoring" && !READ_ONLY_SCREENS.includes(screen) && (
+        <div style={{ maxWidth: "900px", margin: "12px auto 0", padding: "0 14px" }}>
+          <ArchivedNote>This weekend is archived — nothing here can be changed. Unarchive it from the header first.</ArchivedNote>
+        </div>
+      )}
+
       {!online && (
         <div style={{ background: "#fff3cd", borderBottom: `1px solid #e6c84a`, padding: "7px 14px", textAlign: "center", fontSize: "12px", color: "#7a5500" }}>
           Offline — scores saved locally, will sync when signal returns
@@ -398,18 +413,18 @@ export default function App() {
               onCancel={() => setNewWeekendOpen(false)}
             />
           ) : (<>
-          {screen === "setup"       && <SetupScreen      event={event} saveEvent={saveEvent} setAdminPin={setAdminPin} authed={authed} library={library} />}
-          {screen === "courses"     && <CourseScreen      event={event} saveEvent={saveEvent} library={library} weekendIndex={weekendIndex} weekendId={weekendId} />}
-          {screen === "pairings"    && <PairingsScreen    event={event} saveEvent={saveEvent} />}
-          {screen === "scoring"     && <ScoringScreen     event={event} saveEvent={saveEvent} library={library} canLock={!gated || organizer} onCourse={onCourse} setOnCourse={setOnCourse} />}
+          {screen === "setup"       && <SetupScreen      event={event} saveEvent={save} setAdminPin={setAdminPin} authed={authed} library={library} />}
+          {screen === "courses"     && <CourseScreen      event={event} saveEvent={save} library={library} weekendIndex={weekendIndex} weekendId={weekendId} />}
+          {screen === "pairings"    && <PairingsScreen    event={event} saveEvent={save} />}
+          {screen === "scoring"     && <ScoringScreen     event={event} saveEvent={save} library={library} canLock={!gated || organizer} onCourse={onCourse} setOnCourse={setOnCourse} readOnly={readOnly} />}
           {screen === "scatts"      && <ScattsScreen      event={event} library={library} />}
           {screen === "live"        && <LiveScreen        event={event} library={library} weekendLabel={(weekendIndex[weekendId] || {}).label} onExit={() => setScreen(lastScreen.current)} />}
           {screen === "leaderboard" && <LeaderboardScreen event={event} library={library} />}
-          {screen === "winnings"    && <WinningsScreen    event={event} library={library} archived={curArchived} saveEvent={saveEvent} weekendLabel={(weekendIndex[weekendId] || {}).label} canAct={!gated || organizer} />}
-          {screen === "games"       && <GamesScreen       event={event} saveEvent={saveEvent} library={library} />}
+          {screen === "winnings"    && <WinningsScreen    event={event} library={library} archived={curArchived} saveEvent={save} weekendLabel={(weekendIndex[weekendId] || {}).label} canAct={!readOnly && (!gated || organizer)} />}
+          {screen === "games"       && <GamesScreen       event={event} saveEvent={save} library={library} />}
           {screen === "replay"      && <ReplayScreen      event={event} library={library} />}
-          {screen === "thursday"    && <ThursdayScreen    event={event} saveEvent={saveEvent} />}
-          {screen === "sixies"      && <SixiesScreen      event={event} saveEvent={saveEvent} library={library} />}
+          {screen === "thursday"    && <ThursdayScreen    event={event} saveEvent={save} />}
+          {screen === "sixies"      && <SixiesScreen      event={event} saveEvent={save} library={library} />}
           {screen === "casual"      && <CasualScreen      library={library} />}
           {screen === "record"      && <RecordScreen      event={event} library={library} weekendIndex={weekendIndex} weekendId={weekendId} />}
           </>)}

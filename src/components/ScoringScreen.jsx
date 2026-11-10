@@ -191,7 +191,7 @@ function LostBallTimer() {
   );
 }
 
-export default function ScoringScreen({ event, saveEvent, library, canLock = true, onCourse: onCourseProp, setOnCourse: setOnCourseProp }) {
+export default function ScoringScreen({ event, saveEvent, library, canLock = true, onCourse: onCourseProp, setOnCourse: setOnCourseProp, readOnly = false }) {
   const { players = [], courses: eventCourses = {}, rounds = {}, pairings = {}, games = {} } = event;
   const courses = coursesFor(event, library);
   // Which round and group this phone keeps the card for. Remembered, because
@@ -271,6 +271,7 @@ export default function ScoringScreen({ event, saveEvent, library, canLock = tru
   const hcpLock = lockStatus(event, activeRound);
 
   async function setScore(pid, holeIdx, val) {
+    if (readOnly) return;   // an archived weekend's scores are the record
     const v = parseInt(val);
     const playerScores = [...(scores[pid] || Array(18).fill(0))];
     playerScores[holeIdx] = isNaN(v) || v < 0 ? 0 : v;
@@ -364,6 +365,7 @@ export default function ScoringScreen({ event, saveEvent, library, canLock = tru
   }
 
   async function setRoundCourseHandler(cId) {
+    if (readOnly) return;
     saveEvent({
       ...event,
       rounds: { ...rounds, [activeRound]: { ...round, courseId: cId } },
@@ -436,9 +438,12 @@ export default function ScoringScreen({ event, saveEvent, library, canLock = tru
 
   const par = course?.par?.[activeHole] || 4;
   const si = course?.si?.[activeHole] || (activeHole + 1);
+  // Archived: the scores show, but the buttons don't take taps.
+  const lockedStyle = readOnly ? { pointerEvents: "none", opacity: 0.6 } : {};
 
   return (
     <div style={{ maxWidth: "900px", margin: "0 auto", padding: "22px 14px", paddingBottom: "90px" }}>
+      {readOnly && <ArchivedNote />}
       {/* On course, everything chosen once a morning — round, group, the hole
           grid, the lock — folds into one line, so the four players are on
           screen as soon as you look at the phone. */}
@@ -761,7 +766,7 @@ export default function ScoringScreen({ event, saveEvent, library, canLock = tru
               row each — the whole group and the hole strip fit in a glance,
               which is the layout PVGC settled on for the same reason. */}
           {onCourse && (
-            <div style={{ marginBottom: "16px" }}>
+            <div style={{ marginBottom: "16px", ...lockedStyle }} aria-disabled={readOnly || undefined}>
               {groupPlayers.map((p) => {
                 const chcp = getEffectiveHcp(p, course, useIndex);
                 const strokes = strokesOnHole(chcp, si);
@@ -860,11 +865,12 @@ export default function ScoringScreen({ event, saveEvent, library, canLock = tru
 
           {/* Player stepper cards — the roomier clubhouse layout */}
           {!onCourse && (
-          <div style={{
+          <div aria-disabled={readOnly || undefined} style={{
             display: "grid",
             gridTemplateColumns: groupPlayers.length <= 2 ? "1fr 1fr" : "repeat(auto-fill, minmax(180px, 1fr))",
             gap: "10px",
             marginBottom: "16px",
+            ...lockedStyle,
           }}>
             {groupPlayers.map((p) => {
               const chcp = getEffectiveHcp(p, course, useIndex);
@@ -1185,3 +1191,14 @@ function SignCard({ status, players, onSign, onUnsign }) {
     </div>
   );
 }
+
+// Shown on an archived weekend, where nothing can be changed.
+export function ArchivedNote({ children = "This weekend is archived — its scores are the record and can't be changed." }) {
+  return (
+    <div role="status" style={{ display: "flex", gap: "10px", alignItems: "center", background: "rgba(138,106,0,.08)", border: "1px solid rgba(138,106,0,.3)", borderRadius: "12px", padding: "11px 14px", marginBottom: "14px", fontSize: "14px", color: "#1a1f1a", lineHeight: 1.45 }}>
+      <span aria-hidden style={{ fontSize: "18px" }}>🔒</span>
+      <span>{children}</span>
+    </div>
+  );
+}
+

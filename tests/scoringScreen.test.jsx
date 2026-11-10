@@ -98,3 +98,25 @@ describe("the app hides its header on the Live board and on course", () => {
     expect(APP).toMatch(/<LiveScreen[^>]*onExit=/);
   });
 });
+
+describe("an archived weekend is read-only", () => {
+  it("says so and won't take taps", () => {
+    const html = renderToStaticMarkup(<ScoringScreen event={archive.event} library={archive.library} saveEvent={() => {}} readOnly onCourse setOnCourse={() => {}} />);
+    expect(html).toMatch(/This weekend is archived/);
+    expect(html).toMatch(/aria-disabled="true"/);
+    expect(html).toMatch(/pointer-events:none/);
+  });
+
+  it("is untouched when the weekend is live", () => {
+    const html = renderToStaticMarkup(<ScoringScreen event={archive.event} library={archive.library} saveEvent={() => {}} onCourse setOnCourse={() => {}} />);
+    expect(html).not.toMatch(/This weekend is archived/);
+    expect(html).not.toMatch(/aria-disabled/);
+  });
+
+  it("the app hands every screen a save that does nothing, and Scoring its own switch", () => {
+    const APP = fs.readFileSync(path.join(process.cwd(), "src/App.jsx"), "utf8");
+    expect(APP).toMatch(/const save = readOnly \? IGNORE_SAVE : saveEvent;/);
+    expect(APP).not.toMatch(/saveEvent=\{saveEvent\}/);
+    expect(APP).toMatch(/<ScoringScreen[^>]*readOnly=\{readOnly\}/);
+  });
+});
